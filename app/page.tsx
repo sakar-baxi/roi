@@ -66,6 +66,7 @@ import {
   Send,
   Users,
   Briefcase,
+  Info,
   LucideIcon
 } from 'lucide-react';
 import {
@@ -106,6 +107,7 @@ interface InputGroupProps {
   delay: string;
   isCurrency?: boolean;
   description: string;
+  infoText?: string;
 }
 
 interface KPICardProps {
@@ -116,6 +118,7 @@ interface KPICardProps {
   color?: string;
   delay: string;
   description: string;
+  infoText?: string;
 }
 
 interface Config {
@@ -123,12 +126,11 @@ interface Config {
   currency: string;
   themeColor: string;
   logoUrl: string | null;
-  ctaLink: string; // Custom CTA URL for the download button
 }
 
 interface Inputs {
   apiCost: number;
-  adminWage: number;
+  monthlySalary: number;
   hoursPerWeek: number;
   errorCorrectionHours: number;
 }
@@ -137,10 +139,34 @@ interface Results {
   manualAnnualCost: number;
   apiFirstYearCost: number;
   savings3Year: number;
-  annualSavings: number;
-  hoursSavedAnnually: number;
+  breakevenMonths: number;
   roiPercent: number;
 }
+
+// --- Reusable Components ---
+
+const InfoTooltip = ({ text }: { text: string }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  return (
+    <div className="relative inline-flex items-center ml-2 group/tooltip z-40 align-middle">
+      <button
+        className="text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+        onMouseEnter={() => setIsVisible(true)}
+        onMouseLeave={() => setIsVisible(false)}
+        onClick={(e) => { e.stopPropagation(); setIsVisible(!isVisible); }}
+        aria-label="More information"
+      >
+        <Info size={15} />
+      </button>
+      {isVisible && (
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200 text-left font-normal normal-case leading-relaxed pointer-events-none">
+          {text}
+          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800"></div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // --- Helpers ---
 
@@ -186,19 +212,19 @@ const CountUp: React.FC<CountUpProps> = ({ end, duration = 2000, prefix = "", su
     maximumFractionDigits: decimals
   }).format(count);
 
-  // Insert a space before alphabetic suffixes (e.g., "Mo") but not before symbols like "%".
-  const needsSpace = suffix && /[A-Za-z]/.test(suffix);
   return (
     <span className="tabular-nums font-jakarta">
       {prefix}
       {formattedCount}
-      {suffix ? (needsSpace ? ` ${suffix}` : suffix) : ''}
+      {suffix}
     </span>
   );
 };
 
 // Component for a single Input/Slider group
-const InputGroup: React.FC<InputGroupProps> = ({ label, value, onChange, currency, unit, min, max, step, delay, isCurrency, description }) => {
+const InputGroup: React.FC<InputGroupProps> = ({ label, value, onChange, currency, unit, min, max, step, delay, isCurrency, description, infoText }) => {
+  const [showInfo, setShowInfo] = useState(false);
+
   const formatValue = (val: number): string => {
     const formatted = new Intl.NumberFormat('en-IN', {
       minimumFractionDigits: isCurrency && val < 1000 ? 0 : 0,
@@ -221,9 +247,29 @@ const InputGroup: React.FC<InputGroupProps> = ({ label, value, onChange, currenc
   const percentage = ((value - min) / range) * 100;
 
   return (
-    <div className={`animate-fade-up ${delay} p-4 bg-white rounded-2xl border border-slate-100 shadow-sm transition-shadow hover:shadow-md`}>
+    <div className={`animate-fade-up ${delay} p-4 bg-white rounded-2xl border border-slate-100 shadow-sm transition-shadow hover:shadow-md relative group/input`}>
       <div className="flex justify-between items-center mb-4">
-        <label className="text-sm font-semibold text-slate-700 font-jakarta">{label}</label>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-semibold text-slate-700 font-jakarta">{label}</label>
+          {infoText && (
+            <div className="relative">
+              <button
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+                onMouseEnter={() => setShowInfo(true)}
+                onMouseLeave={() => setShowInfo(false)}
+                onClick={() => setShowInfo(!showInfo)}
+              >
+                <Info size={14} />
+              </button>
+              {showInfo && (
+                <div className="absolute left-0 bottom-full mb-2 w-64 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                  {infoText}
+                  <div className="absolute bottom-0 left-4 transform translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800"></div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="text-base font-bold theme-text bg-slate-50 px-3 py-1 rounded-lg border border-slate-100 flex items-center min-w-[100px] justify-end whitespace-nowrap tabular-nums font-jakarta">
           {formatValue(value)}
         </div>
@@ -259,8 +305,7 @@ export default function App() {
     vendorName: "YourCompany",  // Company name displayed in navbar and chart legend
     currency: "₹",              // Currency symbol for all monetary values (₹, $, €, £)
     themeColor: "#3b6ff7",      // Primary brand color (HEX) - generates all color variations
-    logoUrl: null,              // Company logo URL or base64 string (null = default icon)
-    ctaLink: ""                 // Custom CTA link (leave empty to use print)
+    logoUrl: null               // Company logo URL or base64 string (null = default icon)
   });
 
   const [isEditingConfig, setIsEditingConfig] = useState(false);
@@ -269,14 +314,14 @@ export default function App() {
   const chartRef = useRef<HTMLDivElement>(null);
 
   const [inputs, setInputs] = useState<Inputs>({
-    apiCost: 80000,
-    adminWage: 45000,
-    hoursPerWeek: 6,
-    errorCorrectionHours: 3,
+    apiCost: 0,
+    monthlySalary: 50000,
+    hoursPerWeek: 4,
+    errorCorrectionHours: 2,
   });
 
   const [results, setResults] = useState<Results>({
-    manualAnnualCost: 0, apiFirstYearCost: 0, savings3Year: 0, annualSavings: 0, hoursSavedAnnually: 0, roiPercent: 0
+    manualAnnualCost: 0, apiFirstYearCost: 0, savings3Year: 0, breakevenMonths: 0, roiPercent: 0
   });
 
   // --- Persistence ---
@@ -331,31 +376,32 @@ export default function App() {
   // Calculations
   useEffect(() => {
     const sanitizedInputs = {
-      apiCost: Math.max(50000, Math.min(80000, inputs.apiCost || 0)),
-      adminWage: Math.max(30000, Math.min(500000, inputs.adminWage || 0)),
-      hoursPerWeek: Math.max(8, Math.min(40, inputs.hoursPerWeek || 0)),
-      errorCorrectionHours: Math.max(2, Math.min(20, inputs.errorCorrectionHours || 0)),
+      apiCost: Math.max(0, Math.min(5000000, inputs.apiCost || 0)),
+      monthlySalary: Math.max(10000, Math.min(500000, inputs.monthlySalary || 0)),
+      hoursPerWeek: Math.max(1, Math.min(40, inputs.hoursPerWeek || 0)),
+      errorCorrectionHours: Math.max(0, Math.min(20, inputs.errorCorrectionHours || 0)),
     };
 
-    // Calculate annual manual cost based on monthly salary
-    // Hours per week * 52 weeks + error correction hours * 12 months = total annual hours
-    // Then divide by typical hours per month to get cost contribution
+    // Convert monthly salary to hourly rate (assuming 160 working hours per month)
+    const hourlyRate = sanitizedInputs.monthlySalary / 160;
+
     const annualManualHours = (sanitizedInputs.hoursPerWeek * 52) + (sanitizedInputs.errorCorrectionHours * 12);
-    const costPerHour = sanitizedInputs.adminWage / 160; // Assume 160 working hours per month
-    const manualAnnualCost = annualManualHours * costPerHour;
-    
+    const manualAnnualCost = annualManualHours * hourlyRate;
     const apiFirstYearCost = sanitizedInputs.apiCost;
-    const manual3Year = Math.max(0, manualAnnualCost * 3);
+    const manual3Year = manualAnnualCost * 3;
     const api3Year = apiFirstYearCost;
-    const savings3Year = Math.max(0, manual3Year - api3Year); // Never negative
-    const netBenefit = Math.max(0, manual3Year - api3Year);
-    const roiPercent = api3Year > 0 ? Math.max(0, (netBenefit / api3Year) * 100) : 0;
-    const annualSavings = Math.max(0, manualAnnualCost); // Full annual cost is saved every year
-    const hoursSavedAnnually = Math.max(0, annualManualHours); // Total hours freed up
+    const savings3Year = manual3Year - api3Year;
+
+    // Calculate Year 1 ROI (not 3-year)
+    const year1NetBenefit = manualAnnualCost - apiFirstYearCost;
+    const roiPercent = apiFirstYearCost > 0 ? (year1NetBenefit / apiFirstYearCost) * 100 : 0;
+
+    const monthlyManualCost = manualAnnualCost / 12;
+    const breakevenMonths = monthlyManualCost > 0 ? (sanitizedInputs.apiCost / monthlyManualCost) : 0;
 
     setInputs(sanitizedInputs);
-    setResults({ manualAnnualCost: Math.max(0, manualAnnualCost), apiFirstYearCost, savings3Year, annualSavings, hoursSavedAnnually, roiPercent });
-  }, [inputs.apiCost, inputs.adminWage, inputs.hoursPerWeek, inputs.errorCorrectionHours]);
+    setResults({ manualAnnualCost, apiFirstYearCost, savings3Year, breakevenMonths, roiPercent });
+  }, [inputs.apiCost, inputs.monthlySalary, inputs.hoursPerWeek, inputs.errorCorrectionHours]);
 
   // --- Dynamic Theme Styles ---
   // Auto-generates CSS variables from the primary theme color
@@ -378,52 +424,14 @@ export default function App() {
       --primary-shadow: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.4);    /* 40% opacity - Shadows */
     }
 
-  html { font-size: 16px; -webkit-text-size-adjust: 100%; }
-  body { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1rem; line-height: 1.6; }
-  .font-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
-
-  /* Readability overrides: increase small text, spacing and control sizes globally */
-  .text-xs { font-size: 0.85rem; line-height: 1.4; }
-  .text-sm { font-size: 0.95rem; line-height: 1.45; }
-  .text-base { font-size: 1rem; line-height: 1.6; }
-
-  /* Inputs, selects and buttons should be comfortably tappable */
-  input, select, textarea, button { font-size: 0.97rem; line-height: 1.4; }
-  input[type="number"] { padding: 0.5rem 0.625rem; }
-
-  /* Improve table readability with generous spacing */
-  table th, table td { font-size: 1rem; padding: 1.25rem 1.5rem; line-height: 1.7; }
-  table th { padding-top: 1.5rem; padding-bottom: 1.5rem; }
-  /* Use a fixed table layout for stable column mapping */
-  .table-fixed { table-layout: fixed; }
-  /* Prevent cell content from wrapping and keep alignment intact */
-  table td, table th { word-break: break-word; overflow-wrap: break-word; white-space: normal; }
-  /* Prevent nested divs from breaking table cell alignment */
-  table td > div { display: contents; }
-  table td > div > div { display: inline; }
-  /* Ensure flex items in table cells don't wrap and stay in column */
-  table td.flex { flex-wrap: nowrap; }
-  /* Force text content to stay inline and not wrap */
-  table td div.font-semibold,
-  table td div.text-sm { display: inline; }
-  /* Add extra visual breathing room between rows */
-  table tbody tr { min-height: 7.5rem; }
-  /* Enhance dividers for cleaner separation */
-  table tbody tr:not(:last-child) { border-bottom-width: 2px; border-bottom-color: #f1f5f9; }
-
-  /* Slightly darken muted text for contrast */
-  .text-slate-500 { color: #475569; }
-  .text-slate-400 { color: #64748b; }
-
-  /* Increase clickable area for small controls */
-  .w-20 { min-width: 5.25rem; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .font-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
 
     .theme-text { color: var(--primary); }
     .theme-bg { background-color: var(--primary); }
     .theme-bg-light { background-color: var(--primary-light); }
     .theme-border { border-color: var(--primary); }
-  /* Visible focus ring using generated primary color */
-  .theme-ring-focus:focus { outline: none; box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.12); border-radius: 0.75rem; }
+    .theme-ring-focus:focus { --tw-ring-color: var(--primary); }
     .theme-shadow-lg:hover { box-shadow: 0 15px 30px -8px var(--primary-shadow); } 
 
     .btn-primary {
@@ -477,81 +485,6 @@ export default function App() {
         background-size: 200% 200%;
         animation: gradientShift 25s ease infinite alternate;
     }
-  /* Floating blurred color blob overlays for a more organic hero effect */
-  /* Tunable CSS variables to control intensity and motion */
-  :root {
-    --hero-blob-opacity: 0.95; /* overall pseudo-element opacity */
-    --hero-blob-blur: 60px;    /* blur radius for blobs */
-    --hero-blob-scale: 1.02;   /* subtle scale during animation */
-    --hero-blob-speed: 18s;    /* animation duration */
-  }
-
-  .hero-background { position: relative; overflow: hidden; }
-
-  /* Primary, slow drifting blur layer (large soft blobs) */
-  .hero-background::before {
-    content: '';
-    position: absolute;
-    top: -30%; left: -20%;
-    width: 160%; height: 160%;
-    background:
-      radial-gradient(circle at 18% 28%, rgba(var(--primary-rgb),0.18), transparent 15%),
-      radial-gradient(circle at 82% 72%, rgba(16,185,129,0.12), transparent 20%),
-      radial-gradient(circle at 50% 50%, rgba(59,130,246,0.08), transparent 25%);
-    filter: blur(var(--hero-blob-blur)) saturate(120%);
-    opacity: var(--hero-blob-opacity);
-    transform: translate3d(0,0,0) scale(1);
-    pointer-events: none;
-    animation: floatAround  calc(var(--hero-blob-speed)) linear infinite;
-    z-index: 0;
-    mix-blend-mode: normal;
-  }
-
-  /* Secondary, faster drifting layer to add movement complexity */
-  .hero-background::after {
-    content: '';
-    position: absolute;
-    right: -10%; bottom: -20%;
-    width: 120%; height: 120%;
-    background:
-      radial-gradient(circle at 30% 40%, rgba(251,191,36,0.06), transparent 12%),
-      radial-gradient(circle at 70% 60%, rgba(99,102,241,0.06), transparent 18%);
-    filter: blur(calc(var(--hero-blob-blur) * 0.8)) saturate(110%);
-    opacity: calc(var(--hero-blob-opacity) * 0.85);
-    transform: translate3d(0,0,0) scale(1);
-    pointer-events: none;
-    animation: floatAround2 calc(var(--hero-blob-speed) * 0.65) ease-in-out infinite;
-    z-index: 0;
-    mix-blend-mode: screen;
-  }
-
-  /* Gentle float keyframe for the main layer */
-  @keyframes floatAround {
-    0% { transform: translate3d(-5%, -2%, 0) scale(1); }
-    25% { transform: translate3d(6%, -6%, 0) scale(var(--hero-blob-scale)); }
-    50% { transform: translate3d(12%, 4%, 0) scale(1); }
-    75% { transform: translate3d(-8%, 8%, 0) scale(calc(var(--hero-blob-scale) + 0.01)); }
-    100% { transform: translate3d(-5%, -2%, 0) scale(1); }
-  }
-
-  /* Slightly different path and timing for secondary layer to avoid sync */
-  @keyframes floatAround2 {
-    0% { transform: translate3d(6%, 4%, 0) scale(1); }
-    20% { transform: translate3d(-6%, 8%, 0) scale(1.01); }
-    50% { transform: translate3d(-12%, -6%, 0) scale(1); }
-    80% { transform: translate3d(8%, -4%, 0) scale(1.02); }
-    100% { transform: translate3d(6%, 4%, 0) scale(1); }
-  }
-
-  /* Accessibility: disable motion when user prefers reduced motion */
-  @media (prefers-reduced-motion: reduce) {
-    .hero-background::before,
-    .hero-background::after,
-    .hero-background {
-      animation: none !important;
-      transition: none !important;
-    }
-  }
     @keyframes gradientShift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
     
     .savings-gradient-text {
@@ -651,9 +584,6 @@ export default function App() {
         page-break-inside: avoid;
       }
 
-      /* Allow horizontal content to flow in print instead of being clipped */
-      .overflow-x-auto { overflow-x: visible !important; }
-
       /* Adjust main container */
       main {
         margin-top: 1rem !important;
@@ -689,10 +619,44 @@ export default function App() {
     }
   `;
 
+  // --- Chart Data with Inflation Logic ---
+  // Adding 8% annual salary inflation to make the manual cost projection realistic and defensible.
+  const inflationRate = 1.08;
+
+  const manualY1 = results.manualAnnualCost;
+  const manualY2 = manualY1 * inflationRate;
+  const manualY3 = manualY2 * inflationRate;
+
+  const cumulativeManualY1 = manualY1;
+  const cumulativeManualY2 = manualY1 + manualY2;
+  const cumulativeManualY3 = manualY1 + manualY2 + manualY3;
+
+  // Assuming API cost is front-loaded (CapEx) with minimal maintenance for this simplified view,
+  // or we can treat the inputs as they are. 
+  // For the chart to be "reasonable", we should compare CUMULATIVE spend.
+  const cumulativeApiY1 = results.apiFirstYearCost;
+  // Assuming 15% AMC (Annual Maintenance Cost) for API after Year 1 if not specified, 
+  // but to stick to current inputs, we'll keep it flat or assume the "Setup" covers 3 years?
+  // Actually, usually there's a subscription. Let's assume the "Setup Cost" is the main hurdle 
+  // and maybe a small running cost. 
+  // For now, let's keep API flat to highlight the CapEx vs OpEx, but the Manual curve should curve UP.
+
   const chartData = [
-    { name: 'Year 1', 'Manual Process': results.manualAnnualCost, 'API Automation': results.apiFirstYearCost },
-    { name: 'Year 2', 'Manual Process': results.manualAnnualCost * 2, 'API Automation': results.apiFirstYearCost },
-    { name: 'Year 3', 'Manual Process': results.manualAnnualCost * 3, 'API Automation': results.apiFirstYearCost },
+    {
+      name: 'Year 1',
+      'Manual Process': Math.round(cumulativeManualY1),
+      'API Automation': Math.round(cumulativeApiY1)
+    },
+    {
+      name: 'Year 2',
+      'Manual Process': Math.round(cumulativeManualY2),
+      'API Automation': Math.round(cumulativeApiY1) // CapEx model (paid once)
+    },
+    {
+      name: 'Year 3',
+      'Manual Process': Math.round(cumulativeManualY3),
+      'API Automation': Math.round(cumulativeApiY1)
+    },
   ];
 
   // --- Quick Navigation Component ---
@@ -708,7 +672,6 @@ export default function App() {
           href={`#${item.id}`}
           className="group relative flex items-center justify-end"
           title={item.label}
-          aria-label={item.label}
         >
           <span className="absolute right-8 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap pointer-events-none">
             {item.label}
@@ -727,9 +690,11 @@ export default function App() {
     }
   };
 
-  const KPICard: React.FC<KPICardProps> = ({ title, value, unit, icon: Icon, color, delay, description }) => {
+  const KPICard: React.FC<KPICardProps> = ({ title, value, unit, icon: Icon, color, delay, description, infoText }) => {
     const cardRef = useRef<HTMLDivElement>(null);
     const [isHovering, setIsHovering] = useState(false);
+    const [showInfo, setShowInfo] = useState(false);
+
     const iconColorClass = color === 'success' ? 'bg-emerald-50 text-emerald-600' : 'theme-bg-light theme-text';
     const valueColorClass = color === 'success' ? 'text-emerald-600' : 'text-slate-900';
     const borderColorClass = color === 'success' ? 'border-emerald-200' : 'border-slate-100';
@@ -770,19 +735,32 @@ export default function App() {
     let suffix = "";
     if (unit.includes('%')) { suffix = unit; prefix = ""; }
     else if (unit.includes('Mo')) { decimals = 1; suffix = unit; prefix = ""; }
-    else if (unit.includes('hrs') || unit.includes('Hours')) { suffix = unit; prefix = ""; }
 
     return (
       <div
         ref={cardRef}
-        tabIndex={0}
-        onFocus={() => setIsHovering(true)}
-        onBlur={() => setIsHovering(false)}
-        className={`bg-white p-8 rounded-[2rem] shadow-xl border ${borderColorClass} transition-all duration-500 will-change-transform animate-fade-up ${delay} font-jakarta focus:outline-none theme-ring-focus`}
+        className={`bg-white p-8 rounded-[2rem] shadow-xl border ${borderColorClass} transition-all duration-500 will-change-transform animate-fade-up ${delay} hover:z-30 font-jakarta relative`}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         style={{ boxShadow: '0 10px 30px -5px rgba(0,0,0,0.1)' }}
       >
+        {infoText && (
+          <div className="absolute top-4 right-4 z-20">
+            <button
+              className="text-slate-300 hover:text-slate-500 transition-colors bg-white rounded-full p-1"
+              onMouseEnter={() => setShowInfo(true)}
+              onMouseLeave={() => setShowInfo(false)}
+              onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo); }}
+            >
+              <Info size={16} />
+            </button>
+            {showInfo && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200 text-left">
+                {infoText}
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex justify-between items-start mb-6">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</p>
           <div className={`${iconColorClass} p-3 rounded-xl group-hover:scale-110 transition-transform`}>
@@ -798,7 +776,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 pb-20 overflow-x-visible font-jakarta">
+    <div className="min-h-screen bg-slate-50 text-slate-800 pb-20 overflow-x-hidden font-jakarta">
       <style>{themeStyles}</style>
 
       {/* --- Navbar --- */}
@@ -812,8 +790,8 @@ export default function App() {
             )}
           </div>
           <div className="flex items-center gap-3 no-print">
-            <button aria-label="Customize theme" onClick={() => setIsEditingConfig(true)} className="p-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all" title="Customize Theme"><Edit3 size={20} /></button>
-            <button aria-label="Export report" onClick={() => window.print()} className="btn-primary px-6 py-3 rounded-xl text-sm font-bold shadow-xl shadow-slate-300/50 flex items-center gap-2 transform hover:-translate-y-0.5">
+            <button onClick={() => setIsEditingConfig(true)} className="p-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all" title="Customize Theme"><Edit3 size={20} /></button>
+            <button onClick={() => window.print()} className="btn-primary px-6 py-3 rounded-xl text-sm font-bold shadow-xl shadow-slate-300/50 flex items-center gap-2 transform hover:-translate-y-0.5">
               <Download size={18} /> <span className="hidden sm:inline">Export Report</span>
             </button>
           </div>
@@ -824,9 +802,9 @@ export default function App() {
       {isEditingConfig && (
         <div className="fixed inset-0 bg-slate-900/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg transform scale-100 transition-all relative overflow-hidden font-jakarta">
-              <div className="flex justify-between items-center mb-8 border-b pb-4">
+            <div className="flex justify-between items-center mb-8 border-b pb-4">
               <h3 className="text-2xl font-bold text-slate-900 flex items-center gap-3"><Palette size={24} className="theme-text" /> Brand & Customization</h3>
-              <button aria-label="Close customization" onClick={() => setIsEditingConfig(false)} className="text-slate-400 hover:text-red-500 transition-colors p-2"><X size={24} /></button>
+              <button onClick={() => setIsEditingConfig(false)} className="text-slate-400 hover:text-red-500 transition-colors p-2"><X size={24} /></button>
             </div>
             <div className="space-y-6">
               <div>
@@ -836,10 +814,10 @@ export default function App() {
                   <span className="text-sm font-medium text-slate-500">Click to upload or drag & drop</span>
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                 </div>
-                    {config.logoUrl && (
+                {config.logoUrl && (
                   <div className="mt-4 flex items-center justify-center">
                     <img src={config.logoUrl} alt="Preview" className="h-12 w-auto object-contain max-h-12 border border-slate-200 p-1 rounded-lg bg-white" />
-                    <button aria-label="Remove logo" onClick={(e) => { e.stopPropagation(); setConfig(prev => ({ ...prev, logoUrl: null })); }} className="ml-3 text-red-500 hover:text-red-700"><X size={16} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setConfig(prev => ({ ...prev, logoUrl: null })); }} className="ml-3 text-red-500 hover:text-red-700"><X size={16} /></button>
                   </div>
                 )}
               </div>
@@ -865,11 +843,6 @@ export default function App() {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Custom CTA Link (Optional)</label>
-                <input type="url" value={config.ctaLink} onChange={(e) => setConfig({ ...config, ctaLink: e.target.value })} className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 theme-ring-focus outline-none font-medium" placeholder="https://your-website.com/contact" />
-                <p className="text-xs text-slate-500 mt-1">Leave blank to use print/download function. Or enter a URL to redirect users to your custom page.</p>
-              </div>
             </div>
             <button onClick={() => setIsEditingConfig(false)} className="mt-10 w-full btn-primary py-4 rounded-xl font-bold text-lg shadow-xl shadow-slate-300/50">Save & Recalculate</button>
           </div>
@@ -880,13 +853,13 @@ export default function App() {
       <div className="relative pt-20 pb-40 px-4 hero-background">
         <div className="max-w-5xl mx-auto text-center relative z-10 animate-fade-up delay-100">
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full theme-bg-light theme-text text-sm font-extrabold uppercase tracking-wide mb-8 border theme-border border-opacity-50 backdrop-blur-sm shadow-inner shadow-slate-100/50">
-            <RefreshCw size={16} className="animate-spin-slow" /> Smart Automation for Enterprise
+            <RefreshCw size={16} className="animate-spin-slow" /> HRMS Integration ROI Calculator
           </div>
           <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight text-slate-900 mb-6 leading-tight">
-            Stop Wasting Time on <span className="text-shine">Manual Data Work</span>
+            Stop Manually Emailing <span className="text-shine">Employee Data</span>
           </h1>
           <p className="text-slate-600 text-lg sm:text-xl max-w-3xl mx-auto leading-relaxed mb-10">
-            Discover how modern API integration eliminates costly manual processes, reduces errors, and frees your team to focus on strategic priorities. See your financial impact in just a few clicks.
+            Securely sync HRMS data with your vendors instantly. Eliminate the risk of emailing sensitive Excel sheets and save hundreds of hours in manual formatting.
           </p>
         </div>
       </div>
@@ -897,63 +870,102 @@ export default function App() {
         {/* Slide 1: Calculator Section */}
         <section id="inputs" className="min-h-[90vh] flex flex-col justify-center py-10 page-break-avoid">
           <div className="animate-fade-up delay-200">
-            <div className="bg-white rounded-[2rem] shadow-3xl shadow-slate-400/20 p-8 lg:p-10 border-t-8 theme-border relative overflow-hidden group theme-shadow-lg mb-8 z-20">
+            <div className="bg-white rounded-[2rem] shadow-3xl shadow-slate-400/20 p-8 lg:p-10 border-t-8 theme-border relative overflow-hidden group theme-shadow-lg">
               <div className="flex items-center gap-4 mb-8">
                 <div className="p-3 theme-bg-light theme-text rounded-2xl shadow-md"><Calculator size={24} /></div>
-                <h2 className="font-extrabold text-2xl text-slate-800 font-jakarta">Business Impact Calculator</h2>
+                <h2 className="font-extrabold text-2xl text-slate-800 font-jakarta">Input Metrics</h2>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <InputGroup label="Annual API Implementation Cost" value={inputs.apiCost} onChange={(val) => setInputs({ ...inputs, apiCost: val })} currency={config.currency} min={50000} max={80000} step={5000} isCurrency={true} delay="delay-300" description="One-time investment for API setup, integration, and deployment (₹50K-₹80K)." />
-                <InputGroup label="Average Monthly Salary (Fully Loaded Cost)" value={inputs.adminWage} onChange={(val) => setInputs({ ...inputs, adminWage: val })} currency={config.currency} min={30000} max={500000} step={5000} isCurrency={true} delay="delay-400" description="Total monthly compensation including salary, benefits, taxes, and overhead (₹30K-₹60K typical for HR)." />
-                <InputGroup label="Hours Per Week on Manual Data Tasks" value={inputs.hoursPerWeek} onChange={(val) => setInputs({ ...inputs, hoursPerWeek: val })} unit="hrs" min={8} max={40} step={0.5} delay="delay-500" description="Time spent handling manual file work, data entry, and monitoring (minimum ~2 days/week)." />
-                <InputGroup label="Hours Per Month on Error Correction" value={inputs.errorCorrectionHours} onChange={(val) => setInputs({ ...inputs, errorCorrectionHours: val })} unit="hrs" min={2} max={20} step={1} delay="delay-600" description="Time spent fixing data errors, discrepancies, and investigation (at least 30 mins/week)." />
+                <InputGroup
+                  label="One-time Setup Cost"
+                  value={inputs.apiCost}
+                  onChange={(val) => setInputs({ ...inputs, apiCost: val })}
+                  currency={config.currency}
+                  min={0} max={5000000} step={10000} isCurrency={true}
+                  delay="delay-300"
+                  description="The initial investment to automate your process (Software + Implementation)."
+                  infoText="This is your 'CapEx'. It includes the software license, onboarding fee, and any initial engineering work required to get started."
+                />
+                <InputGroup
+                  label="HR Employee Monthly Salary (CTC)"
+                  value={inputs.monthlySalary}
+                  onChange={(val) => setInputs({ ...inputs, monthlySalary: val })}
+                  currency={config.currency}
+                  min={10000} max={500000} step={5000} isCurrency={true}
+                  delay="delay-400"
+                  description="Total monthly cost to company (CTC) for the HR person handling this work."
+                  infoText="Enter the full monthly CTC including base salary, PF, insurance, and benefits. We'll automatically calculate the hourly cost (CTC ÷ 160 hours)."
+                />
+                <InputGroup
+                  label="HRMS Download & Formatting (Weekly)"
+                  value={inputs.hoursPerWeek}
+                  onChange={(val) => setInputs({ ...inputs, hoursPerWeek: val })}
+                  unit="hrs" min={1} max={40} step={0.5}
+                  delay="delay-500"
+                  description="Time spent logging into HRMS, generating reports, cleaning columns in Excel, and emailing vendors."
+                  infoText="This is the 'grunt work'. Downloading a CSV, deleting columns, formatting dates, and zipping it with a password takes time every single week."
+                />
+                <InputGroup
+                  label="Data Correction & Re-sends (Monthly)"
+                  value={inputs.errorCorrectionHours}
+                  onChange={(val) => setInputs({ ...inputs, errorCorrectionHours: val })}
+                  unit="hrs" min={0} max={20} step={1}
+                  delay="delay-600"
+                  description="Time lost when vendors reject files due to wrong formats or missing fields."
+                  infoText="Manual files often have errors. This is the time spent going back and forth with the vendor to fix 'bad data' or re-sending lost emails."
+                />
               </div>
             </div>
             {/* KPI Cards merged into Inputs slide */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 relative z-10">
-              {/* Annual Savings Card */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+              {/* Breakeven Card */}
               <div className="animate-fade-up delay-300">
+                <KPICard
+                  title="One Year Returns"
+                  value={results.manualAnnualCost - results.apiFirstYearCost}
+                  unit=""
+                  icon={Clock}
+                  delay="delay-400"
+                  description="Net savings in the first 12 months."
+                  infoText="This is the actual cash you save in Year 1 after paying for the software. Positive means you're already profitable!"
+                />
+              </div>
+
+              {/* Featured Savings Card */}
+              <div className="animate-fade-up delay-400">
                 <div className="bg-gradient-to-br from-emerald-50 via-white to-white p-8 rounded-[2rem] shadow-2xl border-2 border-emerald-100 relative overflow-hidden group hover:shadow-3xl transition-all duration-500 h-full">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-emerald-100/30 to-transparent rounded-full blur-3xl -mr-24 -mt-24"></div>
                   <div className="relative z-10">
                     <div className="flex justify-between items-start mb-4">
-                      <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">💰 Annual Savings</p>
-                      <div className="bg-emerald-100 p-3 rounded-xl"><DollarSign size={22} className="text-emerald-600" /></div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">💰 3-Year Net Savings</p>
+                        <div className="group/tooltip relative">
+                          <Info size={14} className="text-emerald-400 cursor-help" />
+                          <div className="absolute left-0 bottom-full mb-2 w-48 bg-slate-800 text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none">
+                            Total money saved after subtracting the software cost.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-emerald-100 p-3 rounded-xl"><Coins size={22} className="text-emerald-600" /></div>
                     </div>
-                    <div className="text-5xl font-black text-emerald-600 mb-2 tabular-nums"><CountUp end={results.annualSavings} prefix={config.currency} suffix="" decimals={0} isVisible={true} duration={2500} /></div>
-                    <p className="text-xs text-slate-500">Recurring cost reduction every year</p>
+                    <div className="text-5xl font-black text-emerald-600 mb-2 tabular-nums"><CountUp end={results.savings3Year} prefix={config.currency} suffix="" decimals={0} isVisible={true} duration={2500} /></div>
+                    <p className="text-xs text-slate-500">Pure profit retained by the company.</p>
                   </div>
                 </div>
               </div>
 
-              {/* Hours Saved Card */}
-              <div className="animate-fade-up delay-400">
-                <div className="bg-white p-8 rounded-[2rem] shadow-2xl relative overflow-hidden group hover:shadow-3xl transition-all duration-500 h-full" style={{borderWidth: '2px', borderColor: 'rgba(var(--primary-rgb), 0.3)', background: `linear-gradient(to bottom right, rgba(var(--primary-rgb), 0.03), rgba(255,255,255,1))`}}>
-                  <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl -mr-24 -mt-24" style={{background: `radial-gradient(circle, rgba(var(--primary-rgb), 0.15), transparent)`}}></div>
-                  <div className="relative z-10">
-                    <div className="flex justify-between items-start mb-4">
-                      <p className="text-xs font-bold uppercase tracking-wider theme-text">⏱️ Hours Saved Annually</p>
-                      <div className="theme-bg-light p-3 rounded-xl"><Clock size={22} className="theme-text" /></div>
-                    </div>
-                    <div className="text-5xl font-black mb-2 tabular-nums theme-text"><CountUp end={results.hoursSavedAnnually} prefix="" suffix=" hrs" decimals={0} isVisible={true} duration={2500} /></div>
-                    <p className="text-xs text-slate-500">Employee capacity freed for strategic work</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3-Year Savings Card */}
+              {/* ROI Card */}
               <div className="animate-fade-up delay-500">
-                <div className="bg-gradient-to-br from-blue-50 via-white to-white p-8 rounded-[2rem] shadow-2xl border-2 border-blue-100 relative overflow-hidden group hover:shadow-3xl transition-all duration-500 h-full">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-blue-100/30 to-transparent rounded-full blur-3xl -mr-24 -mt-24"></div>
-                  <div className="relative z-10">
-                    <div className="flex justify-between items-start mb-4">
-                      <p className="text-xs font-bold theme-text uppercase tracking-wider">📊 3-Year Savings</p>
-                      <div className="theme-bg-light p-3 rounded-xl"><Coins size={22} className="theme-text" /></div>
-                    </div>
-                    <div className="text-5xl font-black theme-text mb-2 tabular-nums"><CountUp end={results.savings3Year} prefix={config.currency} suffix="" decimals={0} isVisible={true} duration={2500} /></div>
-                    <p className="text-xs text-slate-500">Total cumulative savings</p>
-                  </div>
-                </div>
+                <KPICard
+                  title="Return on Investment"
+                  value={results.roiPercent}
+                  unit="%"
+                  icon={Zap}
+                  color="success"
+                  delay="delay-600"
+                  description="First year ROI percentage."
+                  infoText="For every ₹1 you invest, this is the percentage return you get in Year 1. Example: 100% ROI means you double your money in the first year."
+                />
               </div>
             </div>
           </div>
@@ -965,12 +977,23 @@ export default function App() {
             <div ref={chartRef} className="bg-white p-8 rounded-[2rem] shadow-2xl border border-slate-100 relative overflow-hidden">
               <div className="flex justify-between items-center mb-10 flex-wrap gap-4 border-b pb-4">
                 <div>
-                  <h3 className="text-2xl font-extrabold text-slate-900 font-jakarta">3-Year Cost Comparison</h3>
-                  <p className="text-slate-500 font-semibold mt-1 text-sm font-jakarta">Manual processes vs. automated API solution</p>
+                  <h3 className="text-2xl font-extrabold text-slate-900 font-jakarta">
+                    Cumulative Cost Comparison
+                    <InfoTooltip text="This chart adds up the costs year over year. It shows the total amount of money leaving your bank account over time." />
+                  </h3>
+                  <p className="text-slate-500 font-semibold mt-1 text-sm font-jakarta">Visualizing OpEx vs. CapEx over 3 years.</p>
                 </div>
                 <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-wider font-jakarta">
-                  <span className="flex items-center gap-2 text-slate-500"><span className="w-3 h-3 rounded-full bg-slate-300 shadow-inner"></span> Manual Process</span>
-                  <span className="flex items-center gap-2 theme-text"><span className="w-3 h-3 rounded-full theme-bg shadow-lg shadow-blue-500/30"></span> API Solution</span>
+                  <span className="flex items-center gap-2 text-slate-500">
+                    <span className="w-3 h-3 rounded-full bg-slate-300 shadow-inner"></span>
+                    Manual Process
+                    <InfoTooltip text="This bar grows taller because salaries rise by ~8% every year, making the same work more expensive." />
+                  </span>
+                  <span className="flex items-center gap-2 theme-text">
+                    <span className="w-3 h-3 rounded-full theme-bg shadow-lg shadow-blue-500/30"></span>
+                    API Automation
+                    <InfoTooltip text="This bar stays flat because software licenses don't ask for a raise. You pay a fixed cost." />
+                  </span>
                 </div>
               </div>
 
@@ -991,122 +1014,70 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
             </div>
-            {/* Table merged into Chart slide */}
-            <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-fade-up delay-600 mt-12">
-              {/* Mobile stacked cards (visible on small screens) */}
-              <div className="md:hidden p-6 space-y-6">
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-extrabold text-slate-700 mb-1">Annual Operational Cost (OpEx)</div>
-                      <div className="text-xs text-slate-500 font-semibold">Legacy</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-lg">{config.currency}{results.manualAnnualCost.toLocaleString()}</div>
-                      <div className="text-xs text-slate-500 mt-1">API: {config.currency}0</div>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-extrabold text-slate-700 mb-1">3-Year Total Cost of Ownership</div>
-                      <div className="text-xs text-slate-500 font-semibold">Legacy</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-lg">{config.currency}{(results.manualAnnualCost * 3).toLocaleString()}</div>
-                      <div className="text-xs text-slate-500 mt-1">API: {config.currency}{results.apiFirstYearCost.toLocaleString()}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-1" aria-hidden />
-                      <div>
-                        <div className="text-sm font-extrabold text-slate-700 mb-1">Error Rate &amp; Risk</div>
-                        <div className="text-xs text-slate-500 font-semibold">Legacy</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-lg">High</div>
-                      <div className="text-xs text-slate-500 mt-1">API: Near zero</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <Clock size={18} className="text-slate-400 shrink-0 mt-1" aria-hidden />
-                      <div>
-                        <div className="text-sm font-extrabold text-slate-700 mb-1">Data Latency</div>
-                        <div className="text-xs text-slate-500 font-semibold">Legacy</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-lg">Days / Weeks</div>
-                      <div className="text-xs text-slate-500 mt-1">API: Real-time</div>
-                    </div>
-                  </div>
-                </div>
+            {/* Explanation of Cost Divergence */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 animate-fade-up delay-600">
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
+                  <TrendingUp size={18} className="text-red-500" /> Why Manual Costs Rise
+                </h4>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Manual processes are never static. They compound due to <strong>annual salary inflation (~8-10%)</strong> and increasing data volume. As your company grows, the "grunt work" of formatting Excel sheets grows linearly, creating a rising cost curve.
+                </p>
               </div>
+              <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
+                <h4 className="font-bold theme-text mb-2 flex items-center gap-2">
+                  <ShieldCheck size={18} /> Why API Costs Stay Flat
+                </h4>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Our pricing is based on a fixed technology license. Whether you sync 100 or 10,000 employee records, the software cost remains constant. This gives you <strong>"Zero Marginal Cost"</strong> scale—you grow without paying more.
+                </p>
+              </div>
+            </div>
 
-              {/* Desktop / tablet table (hidden on small screens) */}
-              <div className="hidden md:block overflow-x-auto" role="region" aria-label="Cost comparison table">
-                <table className="w-full table-fixed text-left text-base leading-relaxed border-collapse font-jakarta mt-8 min-w-[1000px]" role="table">
-                  <caption className="sr-only">Comparison of manual process vs API automation</caption>
-                  <colgroup>
-                    {/* More stable column widths: equal distribution across the three columns */}
-                    <col style={{width: '33.33%'}} />
-                    <col style={{width: '33.33%'}} />
-                    <col style={{width: '33.33%'}} />
-                  </colgroup>
+            {/* Table merged into Chart slide */}
+            <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden animate-fade-up delay-600 mt-8">
+              <div className="overflow-x-auto">
+                <table className="w-full table-auto text-left text-sm border-collapse font-jakarta mt-8">
                   <thead>
-                    <tr className="bg-gradient-to-r from-slate-50 to-slate-50 border-b-2 border-slate-200">
-                      <th scope="col" className="p-6 font-extrabold text-slate-700 uppercase tracking-wide text-sm">Metric</th>
-                      <th scope="col" className="p-6 font-extrabold text-slate-500 uppercase tracking-wide text-sm">Current Manual Process</th>
-                      <th scope="col" className="p-6 font-extrabold theme-text uppercase tracking-wide text-sm">With API Solution</th>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="p-6 font-extrabold text-slate-600 uppercase tracking-wider w-1/3">Metric</th>
+                      <th className="p-6 font-extrabold text-slate-400 uppercase tracking-wider w-1/3">Legacy Manual Process</th>
+                      <th className="p-6 font-extrabold theme-text uppercase tracking-wider w-1/3">API Automation</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y-2 divide-slate-100">
-                    <tr className="hover:bg-slate-50/60 transition-all duration-200 hover:shadow-inner">
-                      <td className="p-8 font-bold text-slate-800 text-lg">Annual Operational Cost (OpEx)</td>
-                      <td className="p-8 font-medium text-slate-700">
-                        <div className="font-bold text-base">{config.currency}{results.manualAnnualCost.toLocaleString()}</div>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        Annual Operational Cost (OpEx)
+                        <InfoTooltip text="This is the recurring money you burn every year just to keep the lights on. Manual work burns cash forever; Automation stops the burn." />
                       </td>
-                      <td className="p-8 font-bold theme-text bg-blue-50/40">
-                        <div className="text-base">{config.currency}0</div>
-                      </td>
+                      <td className="p-6 font-medium text-slate-500">{config.currency}{results.manualAnnualCost.toLocaleString()}</td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30">{config.currency}0 <span className="text-xs font-normal text-slate-400 ml-1">(After Year 1)</span></td>
                     </tr>
-                    <tr className="hover:bg-slate-50/60 transition-all duration-200 hover:shadow-inner">
-                      <td className="p-8 font-bold text-slate-800 text-lg">3-Year Total Cost of Ownership</td>
-                      <td className="p-8 font-medium text-slate-700">
-                        <div className="font-bold text-base">{config.currency}{(results.manualAnnualCost * 3).toLocaleString()}</div>
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        3-Year Total Cost of Ownership
+                        <InfoTooltip text="The big picture. It includes the setup fee plus all the running costs for 3 years. Notice how Manual ends up costing way more?" />
                       </td>
-                      <td className="p-8 font-bold theme-text bg-blue-50/40">
-                        <div className="text-base">{config.currency}{results.apiFirstYearCost.toLocaleString()}</div>
-                      </td>
+                      <td className="p-6 font-medium text-slate-500">{config.currency}{(results.manualAnnualCost * 3).toLocaleString()}</td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30">{config.currency}{results.apiFirstYearCost.toLocaleString()}</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/60 transition-all duration-200 hover:shadow-inner">
-                      <td className="p-8 font-bold text-slate-800 text-lg">Error Rate &amp; Risk</td>
-                      <td className="p-8 font-medium text-slate-700">
-                        <div className="font-bold text-base">High</div>
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        Error Rate & Risk
+                        <InfoTooltip text="Humans make mistakes when tired or distracted. APIs don't. One wrong digit in a payroll file can cost millions in compliance fines." />
                       </td>
-                      <td className="p-8 font-medium theme-text bg-blue-50/40">
-                        <div className="font-bold text-base">Near zero</div>
-                      </td>
+                      <td className="p-6 font-medium text-slate-500"><div className="flex items-center gap-2"><AlertTriangle size={16} className="text-amber-500" /> High (Human Error)</div></td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><ShieldCheck size={16} /> Near Zero (Automated)</div></td>
                     </tr>
-                    <tr className="hover:bg-slate-50/60 transition-all duration-200 hover:shadow-inner">
-                      <td className="p-8 font-bold text-slate-800 text-lg">Data Latency</td>
-                      <td className="p-8 font-medium text-slate-700">
-                        <div className="font-bold text-base">Days / Weeks</div>
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        Data Latency
+                        <InfoTooltip text="How old is your data? Manual reports are 'stale' by the time you get them. APIs give you live data, like a stock ticker." />
                       </td>
-                      <td className="p-8 font-medium theme-text bg-blue-50/40">
-                        <div className="font-bold text-base">Real-time</div>
-                      </td>
+                      <td className="p-6 font-medium text-slate-500"><div className="flex items-center gap-2"><Clock size={16} className="text-slate-400" /> Days/Weeks (Batch)</div></td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><Zap size={16} /> Real-time (Instant)</div></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1115,7 +1086,6 @@ export default function App() {
           </div>
         </section>
 
-
         {/* Slide 4: Comparison Table */}
 
 
@@ -1123,49 +1093,43 @@ export default function App() {
         <section id="cta" className="min-h-[80vh] flex flex-col justify-center py-10 page-break-before page-break-avoid">
           <div className="cta-background p-8 sm:p-12 rounded-[2rem] shadow-2xl border theme-border border-opacity-30 flex flex-col items-center text-center gap-6 animate-fade-up delay-700 font-jakarta">
             <div className="flex items-center gap-3 theme-text font-extrabold uppercase tracking-widest text-sm">
-              <Coins size={20} /> The Bottom Line: Business Impact
+              <Coins size={20} /> FINAL MANDATE: INVESTMENT & ACTION
             </div>
             <h3 className="text-3xl sm:text-4xl font-black text-slate-900 leading-tight max-w-2xl">
-              Eliminate Manual Work. <span className="savings-gradient-text">Unlock Profitability</span>.
+              Stop paying for <span className="text-shine">Manual Processes</span>. Start investing in <span className="savings-gradient-text">Growth</span>.
             </h3>
             <p className="text-slate-600 text-lg max-w-2xl font-medium leading-relaxed">
-              By transitioning to our automated solution, you'll save <span className="font-bold text-emerald-600">{config.currency}{results.annualSavings.toLocaleString()}</span> annually and free up <span className="font-bold text-slate-900 underline decoration-wavy decoration-emerald-400">{results.hoursSavedAnnually.toLocaleString()} hours</span> of staff time—realizing <span className="font-bold text-emerald-600">{config.currency}{results.savings3Year.toLocaleString()}</span> in value over 3 years.
+              By switching to API automation, you save <span className="font-bold text-slate-900 underline decoration-wavy decoration-emerald-400">{config.currency}{(results.manualAnnualCost - results.apiFirstYearCost).toLocaleString()}</span> in the first year alone and generate <span className="font-bold text-emerald-600">{config.currency}{results.savings3Year.toLocaleString()}</span> in pure profit over 3 years.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl pt-8 border-t border-slate-200">
-              <div className="text-left p-8 border border-slate-100 rounded-2xl bg-white shadow-lg">
-                <h4 className="flex items-center gap-2 text-lg font-bold text-slate-800 mb-4">
-                  <Users size={20} className="text-pink-500" /> For Operations Leaders
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl pt-6 border-t border-slate-200">
+              <div className="text-left p-6 border border-slate-100 rounded-2xl bg-white shadow-lg">
+                <h4 className="flex items-center gap-2 text-lg font-bold text-slate-800 mb-3">
+                  <Users size={20} className="text-pink-500" /> For HR & Admin Leaders
                 </h4>
-                <ul className="text-slate-600 space-y-3 text-sm font-medium">
-                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> <span><span className="font-bold">Reclaim {inputs.hoursPerWeek * 52} staff hours annually</span> from repetitive work.</span></li>
-                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Dramatically reduce costly data errors and compliance risks.</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Reallocate talent to high-value, revenue-driving initiatives.</li>
+                <ul className="text-slate-600 space-y-2 text-sm font-medium">
+                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> <span><span className="font-bold">Reclaim {Math.round(inputs.hoursPerWeek * 52 + inputs.errorCorrectionHours * 12)} annual hours</span> per employee.</span></li>
+                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Reduce error-related stress and boost data quality.</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Reallocate talent to high-value strategic work.</li>
                 </ul>
               </div>
-              <div className="text-left p-8 border border-slate-100 rounded-2xl bg-white shadow-lg">
-                <h4 className="flex items-center gap-2 text-lg font-bold text-slate-800 mb-4">
-                  <Briefcase size={20} className="theme-text" /> For Executive Decision-Makers
+              <div className="text-left p-6 border border-slate-100 rounded-2xl bg-white shadow-lg">
+                <h4 className="flex items-center gap-2 text-lg font-bold text-slate-800 mb-3">
+                  <Briefcase size={20} className="theme-text" /> For Business & Ops Leaders
                 </h4>
-                <ul className="text-slate-600 space-y-3 text-sm font-medium">
-                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> <span><span className="font-bold">Real-time visibility</span> into operations with instant data updates.</span></li>
-                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Significantly reduce operational risk and security exposure.</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Build a modern, scalable, future-proof operating model.</li>
+                <ul className="text-slate-600 space-y-2 text-sm font-medium">
+                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> <span><span className="font-bold">Achieve real-time business intelligence</span> (Zero Latency).</span></li>
+                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Mitigate security risks associated with file sharing.</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Establish a scalable, future-proof data pipeline.</li>
                 </ul>
               </div>
             </div>
 
             <div className="pt-8 w-full sm:w-auto">
-              <button aria-label="Next steps" onClick={() => {
-                if (config.ctaLink) {
-                  window.open(config.ctaLink, '_blank');
-                } else {
-                  window.print();
-                }
-              }} className="btn-primary w-full sm:w-auto px-10 py-4 rounded-2xl text-lg font-bold shadow-2xl shadow-blue-500/40 flex items-center justify-center gap-3 group">
-                <Download size={24} className="group-hover:animate-bounce" /> {config.ctaLink ? 'Learn More' : 'Download Report'}
+              <button onClick={() => window.print()} className="btn-primary w-full sm:w-auto px-10 py-4 rounded-2xl text-lg font-bold shadow-2xl shadow-blue-500/40 flex items-center justify-center gap-3 group">
+                <Download size={24} className="group-hover:animate-bounce" /> Download Executive Report
               </button>
-              <p className="text-xs text-slate-400 mt-4 font-semibold uppercase tracking-wider">Ready for your decision</p>
+              <p className="text-xs text-slate-400 mt-4 font-semibold uppercase tracking-wider">Ready for Board Presentation</p>
             </div>
           </div>
         </section>
