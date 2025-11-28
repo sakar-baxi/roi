@@ -129,7 +129,7 @@ interface Config {
 }
 
 interface Inputs {
-  apiCost: number;
+  yearlyIntegrationCost: number;
   monthlySalary: number;
   hoursPerWeek: number;
   errorCorrectionHours: number;
@@ -314,7 +314,7 @@ export default function App() {
   const chartRef = useRef<HTMLDivElement>(null);
 
   const [inputs, setInputs] = useState<Inputs>({
-    apiCost: 0,
+    yearlyIntegrationCost: 5000,
     monthlySalary: 50000,
     hoursPerWeek: 4,
     errorCorrectionHours: 2,
@@ -376,7 +376,7 @@ export default function App() {
   // Calculations
   useEffect(() => {
     const sanitizedInputs = {
-      apiCost: Math.max(0, Math.min(5000000, inputs.apiCost || 0)),
+      yearlyIntegrationCost: Math.max(0, Math.min(15000, inputs.yearlyIntegrationCost || 0)),
       monthlySalary: Math.max(10000, Math.min(500000, inputs.monthlySalary || 0)),
       hoursPerWeek: Math.max(1, Math.min(40, inputs.hoursPerWeek || 0)),
       errorCorrectionHours: Math.max(0, Math.min(20, inputs.errorCorrectionHours || 0)),
@@ -387,21 +387,25 @@ export default function App() {
 
     const annualManualHours = (sanitizedInputs.hoursPerWeek * 52) + (sanitizedInputs.errorCorrectionHours * 12);
     const manualAnnualCost = annualManualHours * hourlyRate;
-    const apiFirstYearCost = sanitizedInputs.apiCost;
-    const manual3Year = manualAnnualCost * 3;
-    const api3Year = apiFirstYearCost;
-    const savings3Year = manual3Year - api3Year;
+    const apiFirstYearCost = sanitizedInputs.yearlyIntegrationCost;
 
-    // Calculate Year 1 ROI (not 3-year)
-    const year1NetBenefit = manualAnnualCost - apiFirstYearCost;
-    const roiPercent = apiFirstYearCost > 0 ? (year1NetBenefit / apiFirstYearCost) * 100 : 0;
+    // Calculate 3-year costs
+    const manual3Year = manualAnnualCost * 3;
+    const api3Year = sanitizedInputs.yearlyIntegrationCost * 3;
+
+    // Ensure no negative values - use Math.max(0, ...)
+    const year1Returns = Math.max(0, manualAnnualCost - apiFirstYearCost);
+    const savings3Year = Math.max(0, manual3Year - api3Year);
+
+    // Calculate Year 1 ROI (ensure non-negative)
+    const roiPercent = apiFirstYearCost > 0 ? Math.max(0, (year1Returns / apiFirstYearCost) * 100) : 0;
 
     const monthlyManualCost = manualAnnualCost / 12;
-    const breakevenMonths = monthlyManualCost > 0 ? (sanitizedInputs.apiCost / monthlyManualCost) : 0;
+    const breakevenMonths = monthlyManualCost > 0 ? (sanitizedInputs.yearlyIntegrationCost / monthlyManualCost) : 0;
 
     setInputs(sanitizedInputs);
     setResults({ manualAnnualCost, apiFirstYearCost, savings3Year, breakevenMonths, roiPercent });
-  }, [inputs.apiCost, inputs.monthlySalary, inputs.hoursPerWeek, inputs.errorCorrectionHours]);
+  }, [inputs.yearlyIntegrationCost, inputs.monthlySalary, inputs.hoursPerWeek, inputs.errorCorrectionHours]);
 
   // --- Dynamic Theme Styles ---
   // Auto-generates CSS variables from the primary theme color
@@ -877,14 +881,14 @@ export default function App() {
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <InputGroup
-                  label="One-time Setup Cost"
-                  value={inputs.apiCost}
-                  onChange={(val) => setInputs({ ...inputs, apiCost: val })}
+                  label="Yearly Integration Cost"
+                  value={inputs.yearlyIntegrationCost}
+                  onChange={(val) => setInputs({ ...inputs, yearlyIntegrationCost: val })}
                   currency={config.currency}
-                  min={0} max={5000000} step={10000} isCurrency={true}
+                  min={0} max={15000} step={500} isCurrency={true}
                   delay="delay-300"
-                  description="The initial investment to automate your process (Software + Implementation)."
-                  infoText="This is your 'CapEx'. It includes the software license, onboarding fee, and any initial engineering work required to get started."
+                  description="Annual recurring cost for API integration and maintenance."
+                  infoText="This is the yearly subscription or license fee. Unlike one-time costs, this recurs annually but stays predictable."
                 />
                 <InputGroup
                   label="HR Employee Monthly Salary (CTC)"
