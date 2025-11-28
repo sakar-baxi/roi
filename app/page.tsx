@@ -15,7 +15,7 @@
  *   logoUrl: null                      // URL or base64 of your company logo
  * });
  * 
- * COLOR PALETTE (Auto-generated from themeColor):
+ * COLOR PALETTE (Auto-generated from themeColor): updates hi nahi le raha hai ye...
  * -----------------------------------------------
  * Default: #3b6ff7 (Vibrant Blue) → RGB(59, 111, 247)
  * 
@@ -1300,7 +1300,7 @@ export default function App() {
                     Cumulative Cost Comparison
                     <InfoTooltip text="This chart adds up the costs year over year. It shows the total amount of money leaving your bank account over time." />
                   </h3>
-                  <p className="text-slate-500 font-semibold mt-1 text-sm font-jakarta">Visualizing OpEx vs. CapEx over 3 years.</p>
+                  <p className="text-slate-500 font-semibold mt-1 text-sm font-jakarta">Visualizing Manual Work vs. Automation over 3 years.</p>
                 </div>
                 <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-wider font-jakarta">
                   <span className="flex items-center gap-2 text-slate-500">
@@ -1341,7 +1341,7 @@ export default function App() {
                   <TrendingUp size={18} className="text-red-500" /> Why Manual Costs Rise
                 </h4>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  Manual processes are never static. They compound due to <strong>annual salary inflation (~8-10%)</strong> and increasing data volume. As your company grows, the "grunt work" of formatting Excel sheets grows linearly, creating a rising cost curve.
+                  Manual processes are never static. They compound due to <strong>annual salary inflation (~4-5%)</strong> and increasing data volume. As your company grows, the "grunt work" of formatting Excel sheets grows linearly, creating a rising cost curve.
                 </p>
               </div>
               <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
@@ -1349,7 +1349,7 @@ export default function App() {
                   <ShieldCheck size={18} /> Why API Costs Stay Flat
                 </h4>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  Our pricing is based on a fixed technology license. Whether you sync 100 or 10,000 employee records, the software cost remains constant. This gives you <strong>"Zero Marginal Cost"</strong> scale—you grow without paying more.
+                  Our pricing is based on a fixed annual charge model. Whether you sync 100 or 10,000 employee records, the software cost remains constant. This gives you <strong>"Zero Marginal Cost"</strong> scale—you grow without paying more.
                 </p>
               </div>
             </div>
@@ -1368,7 +1368,7 @@ export default function App() {
                   <tbody className="divide-y divide-slate-100">
                     <tr className="hover:bg-slate-50/50 transition-colors">
                       <td className="p-6 font-bold text-slate-700">
-                        Annual Operational Cost (OpEx)
+                        Annual Operational Cost
                         <InfoTooltip text="This is the recurring money you burn every year just to keep the lights on. Manual work burns cash forever; Automation stops the burn." />
                       </td>
                       <td className="p-6 font-medium text-slate-500">{config.currency}{results.manualAnnualCost.toLocaleString()}</td>
@@ -1444,7 +1444,7 @@ export default function App() {
                         <InfoTooltip text="Hiring 100 new employees? Manual process means 100 new rows to format. API scales automatically. Whether you add 10 or 1000 employees, the integration cost stays the same." />
                       </td>
                       <td className="p-6 font-medium text-slate-500"><div className="flex items-center gap-2"><TrendingUp size={16} className="text-red-500" /> Cost Increases</div></td>
-                      <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><TrendingUp size={16} className="text-emerald-500" /> Fixed Cost</div></td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><Anchor size={16} className="text-emerald-500" /> Fixed Cost</div></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1494,9 +1494,9 @@ export default function App() {
 
             <div className="pt-8 w-full sm:w-auto">
               <button onClick={() => window.print()} className="btn-primary w-full sm:w-auto px-10 py-4 rounded-2xl text-lg font-bold shadow-2xl shadow-blue-500/40 flex items-center justify-center gap-3 group">
-                <Download size={24} className="group-hover:animate-bounce" /> Download Executive Report
+                <Download size={24} className="group-hover:animate-bounce" /> Learn More
               </button>
-              <p className="text-xs text-slate-400 mt-4 font-semibold uppercase tracking-wider">Ready for Board Presentation</p>
+              <p className="text-xs text-slate-400 mt-4 font-semibold uppercase tracking-wider"> </p>
             </div>
           </div>
         </section>
