@@ -143,6 +143,7 @@ interface Results {
   savings3Year: number;
   breakevenMonths: number;
   roiPercent: number;
+  hrCount: number;
 }
 
 // --- Reusable Components ---
@@ -327,7 +328,7 @@ export default function App() {
   });
 
   const [results, setResults] = useState<Results>({
-    manualAnnualCost: 0, apiFirstYearCost: 0, savings3Year: 0, breakevenMonths: 0, roiPercent: 0
+    manualAnnualCost: 0, apiFirstYearCost: 0, savings3Year: 0, breakevenMonths: 0, roiPercent: 0, hrCount: 0
   });
 
   // --- Persistence ---
@@ -379,7 +380,7 @@ export default function App() {
     return () => observer.disconnect();
   }, []);
 
-  // Calculations
+
   // Calculations
   useEffect(() => {
     const sanitizedInputs = {
@@ -390,11 +391,17 @@ export default function App() {
       errorCorrectionHours: Math.max(0, Math.min(20, inputs.errorCorrectionHours || 0)),
     };
 
+    // Calculate HR Count (1 HR per 70 employees)
+    const hrCount = Math.ceil(sanitizedInputs.companySize / 70);
+
     // Convert monthly salary to hourly rate (assuming 160 working hours per month)
     const hourlyRate = sanitizedInputs.monthlySalary / 160;
 
-    const annualManualHours = (sanitizedInputs.hoursPerWeek * 52) + (sanitizedInputs.errorCorrectionHours * 12);
-    const manualAnnualCost = annualManualHours * hourlyRate;
+    // Total Annual Hours = (Hours per HR * 52 + Error Hours per HR * 12) * HR Count
+    const annualHoursPerHR = (sanitizedInputs.hoursPerWeek * 52) + (sanitizedInputs.errorCorrectionHours * 12);
+    const totalAnnualHours = annualHoursPerHR * hrCount;
+
+    const manualAnnualCost = totalAnnualHours * hourlyRate;
     const apiFirstYearCost = sanitizedInputs.yearlyIntegrationCost;
 
     // Calculate 3-year costs
@@ -411,7 +418,7 @@ export default function App() {
     const monthlyManualCost = manualAnnualCost / 12;
     const breakevenMonths = monthlyManualCost > 0 ? (sanitizedInputs.yearlyIntegrationCost / monthlyManualCost) : 0;
 
-    setResults({ manualAnnualCost, apiFirstYearCost, savings3Year, breakevenMonths, roiPercent });
+    setResults({ manualAnnualCost, apiFirstYearCost, savings3Year, breakevenMonths, roiPercent, hrCount });
   }, [inputs.yearlyIntegrationCost, inputs.monthlySalary, inputs.companySize, inputs.errorCorrectionHours, inputs.hoursPerWeek]);
 
   // --- Dynamic Theme Styles ---
@@ -990,14 +997,14 @@ export default function App() {
               <div className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-2xl border border-blue-100">
                 <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
                   <span className="bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-black">1</span>
-                  Company Size → Hours Calculation
+                  Company Size → HR Team Size
                 </h3>
                 <div className="bg-white p-4 rounded-xl mb-3 font-mono text-sm">
-                  <div className="text-slate-600">Hours per Week = <span className="font-bold text-blue-600">Company Size ÷ 70</span></div>
-                  <div className="text-xs text-slate-500 mt-2">Example: {inputs.companySize} employees ÷ 70 = <span className="font-bold text-blue-600">{inputs.hoursPerWeek} hours/week</span></div>
+                  <div className="text-slate-600">HR Team Size = <span className="font-bold text-blue-600">Company Size ÷ 70</span></div>
+                  <div className="text-xs text-slate-500 mt-2">Example: {inputs.companySize} employees ÷ 70 = <span className="font-bold text-blue-600">{results.hrCount} HR professionals</span></div>
                 </div>
                 <p className="text-sm text-slate-600">
-                  <strong>Why 70?</strong> Industry standard: 1 HR professional can handle employee data for ~70 employees manually. Larger companies need proportionally more time.
+                  <strong>Why 70?</strong> Industry standard: 1 HR professional typically manages data for ~70 employees. We use this to estimate your HR team size.
                 </p>
               </div>
 
@@ -1020,16 +1027,16 @@ export default function App() {
               <div className="bg-gradient-to-br from-amber-50 to-white p-6 rounded-2xl border border-amber-100">
                 <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
                   <span className="bg-amber-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-black">3</span>
-                  Annual Hours Calculation
+                  Total Annual Hours Calculation
                 </h3>
                 <div className="bg-white p-4 rounded-xl mb-3 font-mono text-sm">
-                  <div className="text-slate-600">Annual Hours = <span className="font-bold text-amber-600">(Weekly Hours × 52) + (Error Hours × 12)</span></div>
+                  <div className="text-slate-600">Total Hours = <span className="font-bold text-amber-600">[(Weekly Hours/HR × 52) + (Error Hours/HR × 12)] × HR Count</span></div>
                   <div className="text-xs text-slate-500 mt-2">
-                    Example: ({inputs.hoursPerWeek} × 52) + ({inputs.errorCorrectionHours} × 12) = <span className="font-bold text-amber-600">{(inputs.hoursPerWeek * 52) + (inputs.errorCorrectionHours * 12)} hours/year</span>
+                    Example: [({inputs.hoursPerWeek} × 52) + ({inputs.errorCorrectionHours} × 12)] × {results.hrCount} = <span className="font-bold text-amber-600">{((inputs.hoursPerWeek * 52) + (inputs.errorCorrectionHours * 12)) * results.hrCount} hours/year</span>
                   </div>
                 </div>
                 <p className="text-sm text-slate-600">
-                  <strong>Two components:</strong> Regular weekly work (52 weeks) + Monthly error correction (12 months). This captures the full manual workload.
+                  <strong>The Multiplier Effect:</strong> We calculate the manual work for ONE HR person and multiply it by your estimated HR team size to get the total organizational inefficiency.
                 </p>
               </div>
 
@@ -1205,17 +1212,17 @@ export default function App() {
                   onChange={handleCompanySizeChange}
                   unit="employees" min={70} max={2000} step={10}
                   delay="delay-500"
-                  description="Total number of employees in your organization."
-                  infoText="We automatically estimate HR workload based on 1 HR handling data for 70 employees. You can adjust the hours manually below."
+                  description={`Total employees. Est. HR Team: ${results.hrCount} person${results.hrCount !== 1 ? 's' : ''} (1:70 ratio).`}
+                  infoText={`Based on a standard 1:70 ratio, we estimate you have ${results.hrCount} HR professionals handling this data.`}
                 />
                 <InputGroup
-                  label="Manual Work Hours (Weekly)"
+                  label="Manual Hours per HR (Weekly)"
                   value={inputs.hoursPerWeek}
                   onChange={(val) => setInputs({ ...inputs, hoursPerWeek: val })}
-                  unit="hours" min={1} max={60} step={1}
+                  unit="hours/HR" min={1} max={40} step={1}
                   delay="delay-550"
-                  description="Hours spent per week on manual data entry and formatting."
-                  infoText="This is automatically calculated based on company size, but you can override it if your team spends more or less time on manual tasks."
+                  description="Average hours each HR person spends on manual data work per week."
+                  infoText={`This is the time ONE HR person spends. We multiply this by your HR team size (${results.hrCount}) to get total organizational hours.`}
                 />
                 <InputGroup
                   label="Data Correction & Re-sends (Monthly)"
