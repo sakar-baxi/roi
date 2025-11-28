@@ -67,6 +67,7 @@ import {
   Users,
   Briefcase,
   Info,
+  Anchor,
   LucideIcon
 } from 'lucide-react';
 import {
@@ -379,6 +380,7 @@ export default function App() {
   }, []);
 
   // Calculations
+  // Calculations
   useEffect(() => {
     const sanitizedInputs = {
       yearlyIntegrationCost: Math.max(0, Math.min(25000, inputs.yearlyIntegrationCost || 0)),
@@ -388,14 +390,10 @@ export default function App() {
       errorCorrectionHours: Math.max(0, Math.min(20, inputs.errorCorrectionHours || 0)),
     };
 
-    // Auto-calculate hours based on company size (1 HR per 70 employees)
-    const calculatedHoursPerWeek = Math.ceil(sanitizedInputs.companySize / 70);
-    const actualHoursPerWeek = calculatedHoursPerWeek;
-
     // Convert monthly salary to hourly rate (assuming 160 working hours per month)
     const hourlyRate = sanitizedInputs.monthlySalary / 160;
 
-    const annualManualHours = (actualHoursPerWeek * 52) + (sanitizedInputs.errorCorrectionHours * 12);
+    const annualManualHours = (sanitizedInputs.hoursPerWeek * 52) + (sanitizedInputs.errorCorrectionHours * 12);
     const manualAnnualCost = annualManualHours * hourlyRate;
     const apiFirstYearCost = sanitizedInputs.yearlyIntegrationCost;
 
@@ -413,11 +411,8 @@ export default function App() {
     const monthlyManualCost = manualAnnualCost / 12;
     const breakevenMonths = monthlyManualCost > 0 ? (sanitizedInputs.yearlyIntegrationCost / monthlyManualCost) : 0;
 
-    // Update inputs with calculated hours
-    const updatedInputs = { ...sanitizedInputs, hoursPerWeek: actualHoursPerWeek };
-    setInputs(updatedInputs);
     setResults({ manualAnnualCost, apiFirstYearCost, savings3Year, breakevenMonths, roiPercent });
-  }, [inputs.yearlyIntegrationCost, inputs.monthlySalary, inputs.companySize, inputs.errorCorrectionHours]);
+  }, [inputs.yearlyIntegrationCost, inputs.monthlySalary, inputs.companySize, inputs.errorCorrectionHours, inputs.hoursPerWeek]);
 
   // --- Dynamic Theme Styles ---
   // Auto-generates CSS variables from the primary theme color
@@ -821,6 +816,16 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const handleCompanySizeChange = (newSize: number) => {
+    // Auto-calculate hours based on company size (1 HR per 70 employees)
+    const newHours = Math.ceil(newSize / 70);
+    setInputs(prev => ({
+      ...prev,
+      companySize: newSize,
+      hoursPerWeek: newHours
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-20 overflow-x-hidden font-jakarta">
       <style>{themeStyles}</style>
@@ -859,24 +864,44 @@ export default function App() {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Brand Color</label>
-                <div className="flex gap-3 flex-wrap">
-                  {['#3b82f6', '#10b981', '#8b5cf6', '#f43f5e', '#f59e0b', '#06b6d4'].map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setConfig({ ...config, themeColor: c })}
-                      className={`w-10 h-10 rounded-full transition-transform hover:scale-110 shadow-sm ${config.themeColor === c ? 'ring-4 ring-offset-2 ring-slate-200 scale-110' : ''}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                  <div className="relative">
+                <div className="flex items-center gap-3">
+                  <div className="relative group">
                     <input
                       type="color"
                       value={config.themeColor}
                       onChange={(e) => setConfig({ ...config, themeColor: e.target.value })}
-                      className="w-10 h-10 rounded-full overflow-hidden cursor-pointer border-0 p-0"
+                      className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0 overflow-hidden shadow-sm transition-transform hover:scale-105"
                     />
-                    <div className="absolute inset-0 rounded-full border border-slate-200 pointer-events-none"></div>
+                    <div className="absolute inset-0 rounded-xl border border-slate-200 pointer-events-none ring-2 ring-transparent group-hover:ring-slate-100 transition-all"></div>
                   </div>
+                  <div className="flex-1 relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm">#</span>
+                    <input
+                      type="text"
+                      value={config.themeColor.replace('#', '')}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow only hex characters
+                        if (/^[0-9A-Fa-f]{0,6}$/.test(val)) {
+                          setConfig({ ...config, themeColor: `#${val}` });
+                        }
+                      }}
+                      className="w-full border border-slate-200 rounded-xl py-3 pl-7 pr-4 font-mono text-sm uppercase focus:ring-2 theme-ring-focus outline-none font-medium transition-shadow"
+                      placeholder="HEX"
+                      maxLength={6}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  {['#3b82f6', '#10b981', '#8b5cf6', '#f43f5e', '#f59e0b', '#06b6d4'].map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setConfig({ ...config, themeColor: c })}
+                      className={`w-8 h-8 rounded-full transition-transform hover:scale-110 shadow-sm border border-slate-100 ${config.themeColor === c ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : ''}`}
+                      style={{ backgroundColor: c }}
+                      title={c}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -896,21 +921,23 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Company Logo URL</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={config.logoUrl || ''}
-                    onChange={(e) => setConfig({ ...config, logoUrl: e.target.value })}
-                    placeholder="https://example.com/logo.png"
-                    className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 theme-ring-focus outline-none"
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 transition-colors"
-                  >
-                    <Upload size={20} />
-                  </button>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Company Logo</label>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer theme-border hover:bg-slate-50 transition-all group relative overflow-hidden"
+                >
+                  {config.logoUrl ? (
+                    <div className="relative z-10 flex flex-col items-center">
+                      <img src={config.logoUrl} alt="Logo Preview" className="h-12 w-auto object-contain mb-3" />
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider group-hover:theme-text transition-colors">Click to Change</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center text-slate-400 group-hover:theme-text transition-colors">
+                      <Upload size={32} className="mb-2" />
+                      <span className="text-sm font-bold">Upload Logo</span>
+                      <span className="text-xs opacity-70 mt-1">PNG, JPG, SVG up to 2MB</span>
+                    </div>
+                  )}
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -928,7 +955,14 @@ export default function App() {
                     }}
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-2">Paste a URL or upload an image file.</p>
+                {config.logoUrl && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfig({ ...config, logoUrl: null }); }}
+                    className="text-xs text-red-500 font-bold mt-2 hover:underline flex items-center gap-1"
+                  >
+                    <X size={12} /> Remove Logo
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1168,11 +1202,20 @@ export default function App() {
                 <InputGroup
                   label="Company Size (Employees)"
                   value={inputs.companySize}
-                  onChange={(val) => setInputs({ ...inputs, companySize: val })}
+                  onChange={handleCompanySizeChange}
                   unit="employees" min={70} max={2000} step={10}
                   delay="delay-500"
                   description="Total number of employees in your organization."
-                  infoText="We automatically calculate HR workload based on 1 HR handling data for 70 employees. For 280 employees, that's 4 hours/week of manual work."
+                  infoText="We automatically estimate HR workload based on 1 HR handling data for 70 employees. You can adjust the hours manually below."
+                />
+                <InputGroup
+                  label="Manual Work Hours (Weekly)"
+                  value={inputs.hoursPerWeek}
+                  onChange={(val) => setInputs({ ...inputs, hoursPerWeek: val })}
+                  unit="hours" min={1} max={60} step={1}
+                  delay="delay-550"
+                  description="Hours spent per week on manual data entry and formatting."
+                  infoText="This is automatically calculated based on company size, but you can override it if your team spends more or less time on manual tasks."
                 />
                 <InputGroup
                   label="Data Correction & Re-sends (Monthly)"
@@ -1425,7 +1468,7 @@ export default function App() {
                   <Users size={20} className="text-pink-500" /> For HR & Admin Leaders
                 </h4>
                 <ul className="text-slate-600 space-y-2 text-sm font-medium">
-                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> <span><span className="font-bold">Reclaim {Math.round(inputs.hoursPerWeek * 52 + inputs.errorCorrectionHours * 12)} annual hours</span> per employee.</span></li>
+                  <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> <span><span className="font-bold">Reclaim {Math.round(inputs.hoursPerWeek * 52 + inputs.errorCorrectionHours * 12)} annual hours</span> per HR.</span></li>
                   <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Reduce error-related stress and boost data quality.</li>
                   <li className="flex items-start gap-2"><CheckCircle2 size={18} className="text-emerald-500 mt-1 shrink-0" /> Reallocate talent to high-value strategic work.</li>
                 </ul>
