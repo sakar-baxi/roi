@@ -131,6 +131,7 @@ interface Config {
 interface Inputs {
   yearlyIntegrationCost: number;
   monthlySalary: number;
+  companySize: number;
   hoursPerWeek: number;
   errorCorrectionHours: number;
 }
@@ -250,33 +251,33 @@ const InputGroup: React.FC<InputGroupProps> = ({ label, value, onChange, currenc
     <div className={`animate-fade-up ${delay} p-4 bg-white rounded-2xl border border-slate-100 shadow-sm transition-shadow hover:shadow-md relative group/input`}>
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-semibold text-slate-700 font-jakarta">{label}</label>
+          <label className="text-sm font-bold text-slate-700 font-jakarta">{label}</label>
           {infoText && (
             <div className="relative">
               <button
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="text-slate-400 hover:text-blue-500 transition-colors focus:outline-none"
                 onMouseEnter={() => setShowInfo(true)}
                 onMouseLeave={() => setShowInfo(false)}
                 onClick={() => setShowInfo(!showInfo)}
               >
-                <Info size={14} />
+                <Info size={16} />
               </button>
               {showInfo && (
                 <div className="absolute left-0 bottom-full mb-2 w-64 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
                   {infoText}
-                  <div className="absolute bottom-0 left-4 transform translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800"></div>
+                  <div className="absolute bottom-0 left-2 transform translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800"></div>
                 </div>
               )}
             </div>
           )}
         </div>
-        <div className="text-base font-bold theme-text bg-slate-50 px-3 py-1 rounded-lg border border-slate-100 flex items-center min-w-[100px] justify-end whitespace-nowrap tabular-nums font-jakarta">
+        <div className="text-base font-bold theme-text bg-blue-50/50 px-4 py-1.5 rounded-lg border border-blue-100 flex items-center min-w-[100px] justify-end whitespace-nowrap tabular-nums font-jakarta shadow-sm">
           {formatValue(value)}
         </div>
       </div>
 
-      <div className="flex gap-4 items-center">
-        <div className="flex-1 relative rounded-full transition-all duration-300">
+      <div className="flex gap-4 items-center group/slider">
+        <div className="flex-1 relative rounded-full transition-all duration-300 h-3">
           <input
             type="range" min={min} max={max} step={step}
             value={value} onChange={(e) => onChange(parseFloat(e.target.value))}
@@ -284,16 +285,18 @@ const InputGroup: React.FC<InputGroupProps> = ({ label, value, onChange, currenc
               '--track-fill-percent': `${percentage}%`,
               background: `linear-gradient(to right, var(--primary) 0%, var(--primary) var(--track-fill-percent), #e2e8f0 var(--track-fill-percent), #e2e8f0 100%)`
             } as React.CSSProperties}
-            className="w-full h-2 rounded-full appearance-none cursor-pointer relative z-10 transition-colors custom-range-input"
+            className="w-full h-3 rounded-full appearance-none cursor-pointer relative z-10 transition-all custom-range-input hover:h-4"
           />
         </div>
         <input
           type="number" min={min} max={max} step={step}
           value={value} onChange={handleManualChange}
-          className="w-20 text-center border border-slate-200 rounded-xl p-2 text-sm font-semibold focus:ring-2 theme-ring-focus outline-none transition-shadow appearance-none font-jakarta"
+          className="w-24 text-center border border-slate-200 rounded-xl p-2 text-sm font-bold text-slate-700 focus:ring-2 theme-ring-focus outline-none transition-all shadow-sm hover:border-blue-300 focus:border-blue-500"
         />
       </div>
-      <p className="text-xs text-slate-500 mt-2 ml-1 font-jakarta">{description}</p>
+      <p className="text-xs text-slate-500 mt-3 ml-1 font-medium font-jakarta flex items-center gap-1">
+        <span className="w-1 h-1 rounded-full bg-slate-300"></span> {description}
+      </p>
     </div>
   );
 };
@@ -310,12 +313,14 @@ export default function App() {
 
   const [isEditingConfig, setIsEditingConfig] = useState(false);
   const [isChartVisible, setIsChartVisible] = useState(false);
+  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
   const [inputs, setInputs] = useState<Inputs>({
     yearlyIntegrationCost: 5000,
     monthlySalary: 50000,
+    companySize: 280,
     hoursPerWeek: 4,
     errorCorrectionHours: 2,
   });
@@ -376,16 +381,21 @@ export default function App() {
   // Calculations
   useEffect(() => {
     const sanitizedInputs = {
-      yearlyIntegrationCost: Math.max(0, Math.min(15000, inputs.yearlyIntegrationCost || 0)),
+      yearlyIntegrationCost: Math.max(0, Math.min(25000, inputs.yearlyIntegrationCost || 0)),
       monthlySalary: Math.max(10000, Math.min(500000, inputs.monthlySalary || 0)),
+      companySize: Math.max(70, Math.min(2000, inputs.companySize || 70)),
       hoursPerWeek: Math.max(1, Math.min(40, inputs.hoursPerWeek || 0)),
       errorCorrectionHours: Math.max(0, Math.min(20, inputs.errorCorrectionHours || 0)),
     };
 
+    // Auto-calculate hours based on company size (1 HR per 70 employees)
+    const calculatedHoursPerWeek = Math.ceil(sanitizedInputs.companySize / 70);
+    const actualHoursPerWeek = calculatedHoursPerWeek;
+
     // Convert monthly salary to hourly rate (assuming 160 working hours per month)
     const hourlyRate = sanitizedInputs.monthlySalary / 160;
 
-    const annualManualHours = (sanitizedInputs.hoursPerWeek * 52) + (sanitizedInputs.errorCorrectionHours * 12);
+    const annualManualHours = (actualHoursPerWeek * 52) + (sanitizedInputs.errorCorrectionHours * 12);
     const manualAnnualCost = annualManualHours * hourlyRate;
     const apiFirstYearCost = sanitizedInputs.yearlyIntegrationCost;
 
@@ -403,9 +413,11 @@ export default function App() {
     const monthlyManualCost = manualAnnualCost / 12;
     const breakevenMonths = monthlyManualCost > 0 ? (sanitizedInputs.yearlyIntegrationCost / monthlyManualCost) : 0;
 
-    setInputs(sanitizedInputs);
+    // Update inputs with calculated hours
+    const updatedInputs = { ...sanitizedInputs, hoursPerWeek: actualHoursPerWeek };
+    setInputs(updatedInputs);
     setResults({ manualAnnualCost, apiFirstYearCost, savings3Year, breakevenMonths, roiPercent });
-  }, [inputs.yearlyIntegrationCost, inputs.monthlySalary, inputs.hoursPerWeek, inputs.errorCorrectionHours]);
+  }, [inputs.yearlyIntegrationCost, inputs.monthlySalary, inputs.companySize, inputs.errorCorrectionHours]);
 
   // --- Dynamic Theme Styles ---
   // Auto-generates CSS variables from the primary theme color
@@ -743,15 +755,18 @@ export default function App() {
     return (
       <div
         ref={cardRef}
-        className={`bg-white p-8 rounded-[2rem] shadow-xl border ${borderColorClass} transition-all duration-500 will-change-transform animate-fade-up ${delay} hover:z-30 font-jakarta relative`}
+        className={`animate-fade-up ${delay} bg-white rounded-[2rem] p-8 border ${borderColorClass} transition-all duration-300 relative overflow-hidden group`}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         style={{ boxShadow: '0 10px 30px -5px rgba(0,0,0,0.1)' }}
       >
+        {/* Shine Effect */}
+        <div className="absolute inset-0 -translate-x-full group-hover:animate-shimmer bg-gradient-to-r from-transparent via-white/40 to-transparent z-10 pointer-events-none"></div>
+
         {infoText && (
           <div className="absolute top-4 right-4 z-20">
             <button
-              className="text-slate-300 hover:text-slate-500 transition-colors bg-white rounded-full p-1"
+              className="text-slate-300 hover:text-blue-500 transition-colors bg-white/80 backdrop-blur-sm rounded-full p-1.5 shadow-sm hover:shadow-md"
               onMouseEnter={() => setShowInfo(true)}
               onMouseLeave={() => setShowInfo(false)}
               onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo); }}
@@ -761,31 +776,58 @@ export default function App() {
             {showInfo && (
               <div className="absolute right-0 top-full mt-2 w-56 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200 text-left">
                 {infoText}
+                <div className="absolute top-0 right-3 transform -translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800"></div>
               </div>
             )}
           </div>
         )}
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex justify-between items-start mb-6 relative z-10">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</p>
-          <div className={`${iconColorClass} p-3 rounded-xl group-hover:scale-110 transition-transform`}>
-            <Icon size={22} />
+          <div className={`${iconColorClass} p-3 rounded-2xl group-hover:scale-110 transition-transform shadow-sm group-hover:shadow-md`}>
+            <Icon size={24} />
           </div>
         </div>
-        <div className={`text-5xl font-black ${valueColorClass} mb-2 tabular-nums whitespace-nowrap overflow-hidden`}>
+        <div className={`text-4xl lg:text-5xl font-black ${valueColorClass} mb-3 tabular-nums whitespace-nowrap overflow-hidden tracking-tight relative z-10`}>
           <CountUp end={value} prefix={prefix} suffix={suffix} decimals={decimals} isVisible={true} />
         </div>
-        <p className="text-xs text-slate-500 min-h-[40px]">{description}</p>
+        <p className="text-sm text-slate-500 min-h-[40px] font-medium relative z-10 leading-snug">{description}</p>
       </div>
     );
   };
+
+  const [scrollY, setScrollY] = useState(0);
+  const parallax1Ref = useRef<HTMLDivElement>(null);
+  const parallax2Ref = useRef<HTMLDivElement>(null);
+  const parallaxBgRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrolled = window.scrollY;
+      setScrollY(scrolled);
+
+      // Apply parallax transforms directly for performance
+      if (parallax1Ref.current) {
+        parallax1Ref.current.style.transform = `translateY(${scrolled * 0.15}px)`;
+      }
+      if (parallax2Ref.current) {
+        parallax2Ref.current.style.transform = `translateY(${scrolled * -0.1}px)`;
+      }
+      if (parallaxBgRef.current) {
+        parallaxBgRef.current.style.transform = `translateY(${scrolled * 0.05}px)`;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-20 overflow-x-hidden font-jakarta">
       <style>{themeStyles}</style>
 
       {/* --- Navbar --- */}
-      <nav className="bg-white/95 backdrop-blur-lg border-b border-slate-200 sticky top-0 z-50 transition-all duration-300 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrollY > 20 ? 'bg-white/90 backdrop-blur-lg shadow-sm py-2' : 'bg-transparent py-4'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="flex items-center gap-3">
             {config.logoUrl ? (
               <img src={config.logoUrl} alt="Company Logo" className="h-10 w-auto object-contain max-h-10" />
@@ -794,6 +836,9 @@ export default function App() {
             )}
           </div>
           <div className="flex items-center gap-3 no-print">
+            <button onClick={() => setIsHowItWorksOpen(true)} className="p-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all" title="How It Works">
+              <Info size={20} />
+            </button>
             <button onClick={() => setIsEditingConfig(true)} className="p-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all" title="Customize Theme"><Edit3 size={20} /></button>
             <button onClick={() => window.print()} className="btn-primary px-6 py-3 rounded-xl text-sm font-bold shadow-xl shadow-slate-300/50 flex items-center gap-2 transform hover:-translate-y-0.5">
               <Download size={18} /> <span className="hidden sm:inline">Export Report</span>
@@ -804,67 +849,287 @@ export default function App() {
 
       {/* --- Config Modal --- */}
       {isEditingConfig && (
-        <div className="fixed inset-0 bg-slate-900/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg transform scale-100 transition-all relative overflow-hidden font-jakarta">
-            <div className="flex justify-between items-center mb-8 border-b pb-4">
-              <h3 className="text-2xl font-bold text-slate-900 flex items-center gap-3"><Palette size={24} className="theme-text" /> Brand & Customization</h3>
-              <button onClick={() => setIsEditingConfig(false)} className="text-slate-400 hover:text-red-500 transition-colors p-2"><X size={24} /></button>
-            </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] shadow-2xl max-w-lg w-full p-8 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+            <h2 className="text-2xl font-extrabold text-slate-900 mb-6 flex items-center gap-3 font-jakarta">
+              <Palette className="text-purple-500" /> Customize Theme
+            </h2>
+
             <div className="space-y-6">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Company Logo</label>
-                <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer theme-border hover:bg-slate-50 transition-all group">
-                  <Upload size={24} className="theme-text group-hover:text-slate-600 mb-2" />
-                  <span className="text-sm font-medium text-slate-500">Click to upload or drag & drop</span>
-                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                </div>
-                {config.logoUrl && (
-                  <div className="mt-4 flex items-center justify-center">
-                    <img src={config.logoUrl} alt="Preview" className="h-12 w-auto object-contain max-h-12 border border-slate-200 p-1 rounded-lg bg-white" />
-                    <button onClick={(e) => { e.stopPropagation(); setConfig(prev => ({ ...prev, logoUrl: null })); }} className="ml-3 text-red-500 hover:text-red-700"><X size={16} /></button>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Brand Color</label>
+                <div className="flex gap-3 flex-wrap">
+                  {['#3b82f6', '#10b981', '#8b5cf6', '#f43f5e', '#f59e0b', '#06b6d4'].map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setConfig({ ...config, themeColor: c })}
+                      className={`w-10 h-10 rounded-full transition-transform hover:scale-110 shadow-sm ${config.themeColor === c ? 'ring-4 ring-offset-2 ring-slate-200 scale-110' : ''}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                  <div className="relative">
+                    <input
+                      type="color"
+                      value={config.themeColor}
+                      onChange={(e) => setConfig({ ...config, themeColor: e.target.value })}
+                      className="w-10 h-10 rounded-full overflow-hidden cursor-pointer border-0 p-0"
+                    />
+                    <div className="absolute inset-0 rounded-full border border-slate-200 pointer-events-none"></div>
                   </div>
-                )}
+                </div>
               </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Primary Theme Color</label>
-                <div className="flex items-center gap-3">
-                  <input type="color" value={config.themeColor} onChange={(e) => setConfig({ ...config, themeColor: e.target.value })} className="h-10 w-10 rounded-lg cursor-pointer border-none bg-transparent p-0" />
-                  <input type="text" value={config.themeColor} onChange={(e) => setConfig({ ...config, themeColor: e.target.value })} className="flex-1 border border-slate-200 rounded-xl p-3 font-mono text-sm uppercase focus:ring-2 theme-ring-focus outline-none" placeholder="#HEX" />
+                <label className="block text-sm font-bold text-slate-700 mb-2">Currency Symbol</label>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  {['₹', '$', '€', '£'].map((curr) => (
+                    <button
+                      key={curr}
+                      onClick={() => setConfig({ ...config, currency: curr })}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${config.currency === curr ? 'bg-white shadow-md text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      {curr}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Company Name</label>
-                  <input type="text" value={config.vendorName} onChange={(e) => setConfig({ ...config, vendorName: e.target.value })} className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 theme-ring-focus outline-none font-medium" />
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Company Logo URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={config.logoUrl || ''}
+                    onChange={(e) => setConfig({ ...config, logoUrl: e.target.value })}
+                    placeholder="https://example.com/logo.png"
+                    className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 theme-ring-focus outline-none"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 transition-colors"
+                  >
+                    <Upload size={20} />
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setConfig({ ...config, logoUrl: reader.result as string });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Currency</label>
-                  <select value={config.currency} onChange={(e) => setConfig({ ...config, currency: e.target.value })} className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 theme-ring-focus outline-none bg-white font-medium">
-                    <option value="₹">₹ INR</option>
-                    <option value="$">$ USD</option>
-                    <option value="€">€ EUR</option>
-                    <option value="£">£ GBP</option>
-                  </select>
-                </div>
+                <p className="text-xs text-slate-400 mt-2">Paste a URL or upload an image file.</p>
               </div>
             </div>
+
             <button onClick={() => setIsEditingConfig(false)} className="mt-10 w-full btn-primary py-4 rounded-xl font-bold text-lg shadow-xl shadow-slate-300/50">Save & Recalculate</button>
           </div>
         </div>
       )}
 
+      {/* --- How It Works Modal --- */}
+      {isHowItWorksOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+            <div className="sticky top-0 bg-white z-10 p-6 border-b border-slate-200 rounded-t-[2rem] flex justify-between items-center">
+              <h2 className="text-2xl font-extrabold text-slate-900 font-jakarta flex items-center gap-3">
+                <Calculator size={28} className="theme-text" />
+                How the ROI Calculator Works
+              </h2>
+              <button onClick={() => setIsHowItWorksOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                <X size={24} className="text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-8">
+              {/* Step 1 */}
+              <div className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-2xl border border-blue-100">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <span className="bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-black">1</span>
+                  Company Size → Hours Calculation
+                </h3>
+                <div className="bg-white p-4 rounded-xl mb-3 font-mono text-sm">
+                  <div className="text-slate-600">Hours per Week = <span className="font-bold text-blue-600">Company Size ÷ 70</span></div>
+                  <div className="text-xs text-slate-500 mt-2">Example: {inputs.companySize} employees ÷ 70 = <span className="font-bold text-blue-600">{inputs.hoursPerWeek} hours/week</span></div>
+                </div>
+                <p className="text-sm text-slate-600">
+                  <strong>Why 70?</strong> Industry standard: 1 HR professional can handle employee data for ~70 employees manually. Larger companies need proportionally more time.
+                </p>
+              </div>
+
+              {/* Step 2 */}
+              <div className="bg-gradient-to-br from-emerald-50 to-white p-6 rounded-2xl border border-emerald-100">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <span className="bg-emerald-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-black">2</span>
+                  Hourly Rate Calculation
+                </h3>
+                <div className="bg-white p-4 rounded-xl mb-3 font-mono text-sm">
+                  <div className="text-slate-600">Hourly Rate = <span className="font-bold text-emerald-600">Monthly Salary ÷ 160</span></div>
+                  <div className="text-xs text-slate-500 mt-2">Example: {config.currency}{inputs.monthlySalary.toLocaleString()} ÷ 160 = <span className="font-bold text-emerald-600">{config.currency}{(inputs.monthlySalary / 160).toFixed(2)}/hour</span></div>
+                </div>
+                <p className="text-sm text-slate-600">
+                  <strong>Why 160?</strong> Standard working hours per month (8 hours/day × 20 working days). This converts monthly CTC to hourly cost.
+                </p>
+              </div>
+
+              {/* Step 3 */}
+              <div className="bg-gradient-to-br from-amber-50 to-white p-6 rounded-2xl border border-amber-100">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <span className="bg-amber-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-black">3</span>
+                  Annual Hours Calculation
+                </h3>
+                <div className="bg-white p-4 rounded-xl mb-3 font-mono text-sm">
+                  <div className="text-slate-600">Annual Hours = <span className="font-bold text-amber-600">(Weekly Hours × 52) + (Error Hours × 12)</span></div>
+                  <div className="text-xs text-slate-500 mt-2">
+                    Example: ({inputs.hoursPerWeek} × 52) + ({inputs.errorCorrectionHours} × 12) = <span className="font-bold text-amber-600">{(inputs.hoursPerWeek * 52) + (inputs.errorCorrectionHours * 12)} hours/year</span>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-600">
+                  <strong>Two components:</strong> Regular weekly work (52 weeks) + Monthly error correction (12 months). This captures the full manual workload.
+                </p>
+              </div>
+
+              {/* Step 4 */}
+              <div className="bg-gradient-to-br from-purple-50 to-white p-6 rounded-2xl border border-purple-100">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <span className="bg-purple-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-black">4</span>
+                  Manual Annual Cost
+                </h3>
+                <div className="bg-white p-4 rounded-xl mb-3 font-mono text-sm">
+                  <div className="text-slate-600">Manual Cost = <span className="font-bold text-purple-600">Annual Hours × Hourly Rate</span></div>
+                  <div className="text-xs text-slate-500 mt-2">
+                    Example: {(inputs.hoursPerWeek * 52) + (inputs.errorCorrectionHours * 12)} × {config.currency}{(inputs.monthlySalary / 160).toFixed(2)} = <span className="font-bold text-purple-600">{config.currency}{results.manualAnnualCost.toLocaleString()}</span>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-600">
+                  <strong>This is the cost of doing nothing.</strong> The money you're already spending on manual data work every year.
+                </p>
+              </div>
+
+              {/* Step 5 */}
+              <div className="bg-gradient-to-br from-rose-50 to-white p-6 rounded-2xl border border-rose-100">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <span className="bg-rose-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-black">5</span>
+                  Year 1 Savings & ROI
+                </h3>
+                <div className="bg-white p-4 rounded-xl mb-3 font-mono text-sm space-y-2">
+                  <div className="text-slate-600">Year 1 Savings = <span className="font-bold text-rose-600">Manual Cost - Integration Cost</span></div>
+                  <div className="text-xs text-slate-500">
+                    Example: {config.currency}{results.manualAnnualCost.toLocaleString()} - {config.currency}{inputs.yearlyIntegrationCost.toLocaleString()} = <span className="font-bold text-rose-600">{config.currency}{Math.max(0, results.manualAnnualCost - inputs.yearlyIntegrationCost).toLocaleString()}</span>
+                  </div>
+                  <div className="border-t pt-2 mt-2">
+                    <div className="text-slate-600">ROI % = <span className="font-bold text-rose-600">(Savings ÷ Integration Cost) × 100</span></div>
+                    <div className="text-xs text-slate-500">
+                      Example: ({config.currency}{Math.max(0, results.manualAnnualCost - inputs.yearlyIntegrationCost).toLocaleString()} ÷ {config.currency}{inputs.yearlyIntegrationCost.toLocaleString()}) × 100 = <span className="font-bold text-rose-600">{results.roiPercent.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-600">
+                  <strong>The bottom line:</strong> For every ₹1 you invest in automation, you get ₹{(results.roiPercent / 100 + 1).toFixed(2)} back in Year 1.
+                </p>
+              </div>
+
+              {/* Interactive Test */}
+              <div className="bg-gradient-to-br from-slate-50 to-white p-6 rounded-2xl border-2 border-slate-200">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <Zap size={20} className="text-yellow-500" />
+                  Try It Yourself
+                </h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Close this modal and adjust the sliders to see how different company sizes and salaries affect your ROI. The calculations update in real-time!
+                </p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="bg-blue-50 p-3 rounded-xl">
+                    <div className="font-bold text-blue-900">Current Company Size</div>
+                    <div className="text-2xl font-black text-blue-600">{inputs.companySize}</div>
+                    <div className="text-xs text-blue-700">employees</div>
+                  </div>
+                  <div className="bg-emerald-50 p-3 rounded-xl">
+                    <div className="font-bold text-emerald-900">Current ROI</div>
+                    <div className="text-2xl font-black text-emerald-600">{results.roiPercent.toFixed(0)}%</div>
+                    <div className="text-xs text-emerald-700">return in Year 1</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-slate-50 p-6 border-t border-slate-200 rounded-b-[2rem]">
+              <button onClick={() => setIsHowItWorksOpen(false)} className="w-full btn-primary py-4 rounded-xl font-bold text-lg">
+                Got It! Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- Hero --- */}
-      <div className="relative pt-20 pb-40 px-4 hero-background">
+      <div className="relative pt-32 pb-48 px-4 hero-background overflow-hidden">
+        {/* Parallax Background Elements */}
+        <div ref={parallaxBgRef} className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-20 right-[10%] w-64 h-64 bg-blue-400/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-[10%] w-72 h-72 bg-emerald-400/10 rounded-full blur-3xl"></div>
+        </div>
+
+        {/* Floating Elements with Parallax */}
+        <div ref={parallax1Ref} className="absolute top-20 left-10 hidden lg:block z-10">
+          <div className="animate-float delay-100 opacity-80">
+            <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100 transform -rotate-6 hover:rotate-0 transition-transform duration-500">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-500"><AlertTriangle size={16} /></div>
+                <div className="text-xs font-bold text-slate-700">Manual Error</div>
+              </div>
+              <div className="h-2 w-24 bg-slate-100 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+        <div ref={parallax2Ref} className="absolute bottom-40 right-10 hidden lg:block z-10">
+          <div className="animate-float delay-700 opacity-80">
+            <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100 transform rotate-6 hover:rotate-0 transition-transform duration-500">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-500"><CheckCircle2 size={16} /></div>
+                <div className="text-xs font-bold text-slate-700">Auto-Synced</div>
+              </div>
+              <div className="h-2 w-24 bg-slate-100 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
         <div className="max-w-5xl mx-auto text-center relative z-10 animate-fade-up delay-100">
-          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full theme-bg-light theme-text text-sm font-extrabold uppercase tracking-wide mb-8 border theme-border border-opacity-50 backdrop-blur-sm shadow-inner shadow-slate-100/50">
+          <div className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/80 backdrop-blur-md theme-text text-sm font-extrabold uppercase tracking-wide mb-8 border border-white/50 shadow-lg hover:scale-105 transition-transform duration-300">
             <RefreshCw size={16} className="animate-spin-slow" /> HRMS Integration ROI Calculator
           </div>
-          <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight text-slate-900 mb-6 leading-tight">
-            Stop Manually Emailing <span className="text-shine">Employee Data</span>
+          <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight text-slate-900 mb-8 leading-tight drop-shadow-sm">
+            Stop Manually Emailing <br className="hidden sm:block" />
+            <span className="text-shine relative inline-block">
+              Employee Data
+              <svg className="absolute w-full h-3 -bottom-1 left-0 text-emerald-400 opacity-40" viewBox="0 0 100 10" preserveAspectRatio="none">
+                <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
+              </svg>
+            </span>
           </h1>
-          <p className="text-slate-600 text-lg sm:text-xl max-w-3xl mx-auto leading-relaxed mb-10">
+          <p className="text-slate-600 text-lg sm:text-2xl max-w-3xl mx-auto leading-relaxed mb-12 font-medium">
             Securely sync HRMS data with your vendors instantly. Eliminate the risk of emailing sensitive Excel sheets and save hundreds of hours in manual formatting.
           </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up delay-300">
+            <button onClick={() => document.getElementById('inputs')?.scrollIntoView({ behavior: 'smooth' })} className="btn-primary px-8 py-4 rounded-2xl text-lg font-bold shadow-xl shadow-blue-500/20 flex items-center gap-3 hover:-translate-y-1 transition-transform">
+              Calculate Your Savings <TrendingUp size={20} />
+            </button>
+            <button onClick={() => setIsHowItWorksOpen(true)} className="px-8 py-4 rounded-2xl text-lg font-bold bg-white text-slate-700 shadow-lg border border-slate-100 flex items-center gap-3 hover:bg-slate-50 hover:-translate-y-1 transition-transform">
+              How It Works <Info size={20} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -885,7 +1150,7 @@ export default function App() {
                   value={inputs.yearlyIntegrationCost}
                   onChange={(val) => setInputs({ ...inputs, yearlyIntegrationCost: val })}
                   currency={config.currency}
-                  min={0} max={15000} step={500} isCurrency={true}
+                  min={0} max={25000} step={500} isCurrency={true}
                   delay="delay-300"
                   description="Annual recurring cost for API integration and maintenance."
                   infoText="This is the yearly subscription or license fee. Unlike one-time costs, this recurs annually but stays predictable."
@@ -901,13 +1166,13 @@ export default function App() {
                   infoText="Enter the full monthly CTC including base salary, PF, insurance, and benefits. We'll automatically calculate the hourly cost (CTC ÷ 160 hours)."
                 />
                 <InputGroup
-                  label="HRMS Download & Formatting (Weekly)"
-                  value={inputs.hoursPerWeek}
-                  onChange={(val) => setInputs({ ...inputs, hoursPerWeek: val })}
-                  unit="hrs" min={1} max={40} step={0.5}
+                  label="Company Size (Employees)"
+                  value={inputs.companySize}
+                  onChange={(val) => setInputs({ ...inputs, companySize: val })}
+                  unit="employees" min={70} max={2000} step={10}
                   delay="delay-500"
-                  description="Time spent logging into HRMS, generating reports, cleaning columns in Excel, and emailing vendors."
-                  infoText="This is the 'grunt work'. Downloading a CSV, deleting columns, formatting dates, and zipping it with a password takes time every single week."
+                  description="Total number of employees in your organization."
+                  infoText="We automatically calculate HR workload based on 1 HR handling data for 70 employees. For 280 employees, that's 4 hours/week of manual work."
                 />
                 <InputGroup
                   label="Data Correction & Re-sends (Monthly)"
@@ -1082,6 +1347,54 @@ export default function App() {
                       </td>
                       <td className="p-6 font-medium text-slate-500"><div className="flex items-center gap-2"><Clock size={16} className="text-slate-400" /> Days/Weeks (Batch)</div></td>
                       <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><Zap size={16} /> Real-time (Instant)</div></td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        Annual Hours Saved
+                        <InfoTooltip text="Time your HR team gets back to focus on strategic initiatives like talent development, employee engagement, and culture building instead of data entry." />
+                      </td>
+                      <td className="p-6 font-medium text-slate-500">0 hrs</td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30">{Math.round((inputs.hoursPerWeek * 52) + (inputs.errorCorrectionHours * 12))} hrs/year</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        Compliance Risk (PF/ESI/PT)
+                        <InfoTooltip text="Manual data sharing increases risk of non-compliance with PF, ESI, and PT regulations. Wrong data = penalties. Automated sync ensures vendor always has correct statutory data." />
+                      </td>
+                      <td className="p-6 font-medium text-slate-500"><div className="flex items-center gap-2"><AlertTriangle size={16} className="text-red-500" /> High Risk</div></td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><ShieldCheck size={16} className="text-emerald-500" /> Compliant</div></td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        Data Security Level
+                        <InfoTooltip text="Emailing Excel files = data breach waiting to happen. API integration uses encrypted channels with role-based access control. No more password-protected ZIPs floating in inboxes." />
+                      </td>
+                      <td className="p-6 font-medium text-slate-500"><div className="flex items-center gap-2"><AlertTriangle size={16} className="text-red-500" /> Email/File Sharing</div></td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><ShieldCheck size={16} className="text-emerald-500" /> Encrypted API</div></td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        Audit Trail Availability
+                        <InfoTooltip text="For ISO/SOC2 audits, you need to prove who accessed what data when. Manual processes have no trail. APIs log every transaction automatically." />
+                      </td>
+                      <td className="p-6 font-medium text-slate-500"><div className="flex items-center gap-2"><X size={16} className="text-red-500" /> No Trail</div></td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-500" /> Full Audit Log</div></td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        Statutory Reporting Readiness
+                        <InfoTooltip text="Form 16, Form 24Q, Annual Returns - all require accurate employee data. Manual errors delay filings. Automated sync means your vendor data matches HRMS, reducing reconciliation time by 80%." />
+                      </td>
+                      <td className="p-6 font-medium text-slate-500"><div className="flex items-center gap-2"><Clock size={16} className="text-amber-500" /> Manual Reconciliation</div></td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><Zap size={16} className="text-emerald-500" /> Auto-Synced</div></td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 font-bold text-slate-700">
+                        Scalability (Growth Ready)
+                        <InfoTooltip text="Hiring 100 new employees? Manual process means 100 new rows to format. API scales automatically. Whether you add 10 or 1000 employees, the integration cost stays the same." />
+                      </td>
+                      <td className="p-6 font-medium text-slate-500"><div className="flex items-center gap-2"><TrendingUp size={16} className="text-red-500" /> Cost Increases</div></td>
+                      <td className="p-6 font-bold theme-text bg-blue-50/30"><div className="flex items-center gap-2"><TrendingUp size={16} className="text-emerald-500" /> Fixed Cost</div></td>
                     </tr>
                   </tbody>
                 </table>
